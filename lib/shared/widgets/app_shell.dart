@@ -19,11 +19,29 @@ class AppShell extends StatelessWidget {
     (_Tab(icon: Icons.more_horiz_rounded, label: 'More')),
   ];
 
+  // Footprint of the floating pill (12 top + 12 bottom padding + 64 height).
+  // The shell uses extendBody:true so branch content draws behind the pill; we
+  // feed this back as extra bottom viewPadding so inner Scaffolds lift their
+  // FABs (and SafeArea-wrapped content) clear of the pill instead of hiding
+  // under it.
+  static const double _navBarFootprint = 88;
+
   @override
   Widget build(BuildContext context) {
+    final media = MediaQuery.of(context);
     return Scaffold(
       extendBody: true,
-      body: navigationShell,
+      body: MediaQuery(
+        data: media.copyWith(
+          viewPadding: media.viewPadding.copyWith(
+            bottom: media.viewPadding.bottom + _navBarFootprint,
+          ),
+          padding: media.padding.copyWith(
+            bottom: media.padding.bottom + _navBarFootprint,
+          ),
+        ),
+        child: navigationShell,
+      ),
       bottomNavigationBar: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(12),
