@@ -1,0 +1,29 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__visualize__read_me",
+      "mcp__visualize__show_widget",
+      "Bash(ls -la \"C:/Users/schuene/Downloads/\" | grep -iE \"MVP1|master|user\" || echo \"no matching files\")",
+      "Bash(cp \"C:/Users/schuene/Downloads/MVP1_2.md\" \"C:/Dev/OHS_SHIELD_TRACKER_1.0/MVP1_2.md\")",
+      "Bash(cp \"C:/Users/schuene/Downloads/MVP1_Follow_ups_1.md\" \"C:/Dev/OHS_SHIELD_TRACKER_1.0/MVP1_Follow_ups_1.md\")",
+      "Bash(flutter pub *)",
+      "Bash(curl -sSL -o /tmp/jni.tgz -w \"http=%{http_code} size=%{size_download}\\\\n\" \"https://pub.dev/api/archives/jni-1.0.3.tar.gz\")",
+      "Read(//tmp/**)",
+      "Read(//c/Users/schuene/AppData/Local/Pub/Cache/hosted/pub.dev/**)",
+      "Bash(dart run *)",
+      "Bash(echo \"exit=$?\")",
+      "Bash(flutter analyze *)",
+      "Bash(flutter test *)",
+      "Bash(java -version)",
+      "Bash(flutter create *)",
+      "Bash(rm -f test/widget_test.dart)",
+      "Bash(flutter build *)",
+      "Bash(dart fix *)",
+      "Bash(grep -oE \"[a-z_]+ - lib|[a-z_]+ -$\" /tmp/an4.log)",
+      "Bash(git init *)",
+      "Bash(git config *)",
+      "Bash(git add *)",
+      "Bash(grep -E \"\\\\.g\\\\.dart$|\\\\.freezed\\\\.dart$|config/env/\\(dev|uat|prod\\)\\\\.json$|google-services\\\\.json|pubspec\\\\.lock|^build/\")"
+    ]
+  }
+}

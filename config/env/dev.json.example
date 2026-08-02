@@ -1,0 +1,6 @@
+{
+  "_comment": "Copy to dev.json (gitignored) and fill. Consumed via --dart-define-from-file=config/env/dev.json. AppConfig.fromEnvironment() reads these keys. NEVER commit real values or the service-role key (server-only).",
+  "FLAVOR": "dev",
+  "SUPABASE_URL": "https://YOUR-DEV-REF.supabase.co",
+  "SUPABASE_ANON_KEY": "YOUR-DEV-ANON-KEY"
+}

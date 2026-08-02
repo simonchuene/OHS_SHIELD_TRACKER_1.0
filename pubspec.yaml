@@ -1,0 +1,92 @@
+# path: pubspec.yaml
+name: ohs_shield_tracker
+description: OHS Shield Tracker — enterprise Occupational Health & Safety platform (MVP1).
+publish_to: "none"
+version: 1.0.0+1
+
+# Flutter SDK pinned to 3.24.5 (stable). Constraint keeps us in >=3.24 <4.0 per Master Prompt.
+environment:
+  sdk: ">=3.5.0 <4.0.0"
+  flutter: ">=3.24.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # State management / DI (code-generated providers)
+  flutter_riverpod: ^2.6.1
+  riverpod_annotation: ^2.6.1
+
+  # Routing
+  go_router: ^14.2.7
+
+  # Backend
+  supabase_flutter: ^2.5.6
+
+  # Local offline persistence (engine built in Prompt 4B)
+  drift: ^2.21.0
+  sqlite3_flutter_libs: ^0.5.24
+  path_provider: ^2.1.4
+  path: ^1.9.0
+
+  # Models / codegen
+  freezed_annotation: ^2.4.4
+  json_annotation: ^4.9.0
+
+  # Platform / device
+  flutter_secure_storage: ^9.2.2
+  connectivity_plus: ^6.0.5
+  image_picker: ^1.1.2
+  geolocator: ^13.0.1
+  file_picker: ^8.1.2
+
+  # Notifications
+  firebase_core: ^3.6.0
+  firebase_messaging: ^15.1.3
+
+  # Utilities
+  logger: ^2.4.0
+  intl: ^0.19.0
+  uuid: ^4.5.1
+  flutter_svg: ^2.0.10+1
+
+  # Reporting (Prompt 14) — PDF export
+  pdf: ^3.11.1
+
+# Pin path_provider_android to the pre-2.3 line: 2.3.x adds a `jni` dependency
+# whose archive can't be fetched in this sandbox (TLS revocation-check limit).
+# 2.2.x provides the same documents-dir API we use. Remove on a normal network.
+dependency_overrides:
+  path_provider_android: ">=2.2.0 <2.3.0"
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  build_runner: ^2.4.13
+  riverpod_generator: ^2.6.4
+  freezed: ^2.5.8
+  json_serializable: ^6.9.0
+  drift_dev: ^2.21.0
+  flutter_lints: ^5.0.0
+  mocktail: ^1.0.4
+  # NOTE: custom_lint / riverpod_lint intentionally omitted — their analyzer
+  # pins conflict with the installed Dart 3.12 SDK. Re-add on a 3.24.x toolchain
+  # (the pinned target) where `analyzer ^6.x` is valid.
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/branding/app_icon.svg
+  # Inter font: add the real .ttf files under assets/fonts/ then re-enable the
+  # `fonts:` block below (assets are placeholders — Master Prompt Item 1a).
+  # Until then the theme's 'Inter' family falls back to Roboto/system.
+  # fonts:
+  #   - family: Inter
+  #     fonts:
+  #       - asset: assets/fonts/Inter-Regular.ttf
+  #       - asset: assets/fonts/Inter-Medium.ttf
+  #         weight: 500
+  #       - asset: assets/fonts/Inter-SemiBold.ttf
+  #         weight: 600
+  #       - asset: assets/fonts/Inter-Bold.ttf
+  #         weight: 700

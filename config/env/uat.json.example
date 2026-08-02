@@ -1,0 +1,6 @@
+{
+  "_comment": "Copy to uat.json (gitignored). Build: flutter build appbundle --flavor uat --dart-define-from-file=config/env/uat.json",
+  "FLAVOR": "uat",
+  "SUPABASE_URL": "https://YOUR-UAT-REF.supabase.co",
+  "SUPABASE_ANON_KEY": "YOUR-UAT-ANON-KEY"
+}

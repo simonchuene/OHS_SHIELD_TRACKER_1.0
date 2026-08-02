@@ -1,0 +1,31 @@
+# path: .gitignore
+# Flutter/Dart
+.dart_tool/
+.packages
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+pubspec.lock
+# Generated code
+*.g.dart
+*.freezed.dart
+# Environment configs with real secrets (keep the .example templates)
+config/env/*.json
+!config/env/*.json.example
+# Android build/config
+android/.gradle/
+android/local.properties
+android/key.properties
+android/app/upload-keystore.jks
+android/app/google-services.json
+# Supabase local
+supabase/.branches/
+supabase/.temp/
+# Firebase config (added per environment during deploy)
+google-services.json
+GoogleService-Info.plist
+# IDE / OS
+.idea/
+.vscode/
+*.iml
+.DS_Store

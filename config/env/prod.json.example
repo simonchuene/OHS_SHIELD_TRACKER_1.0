@@ -1,0 +1,6 @@
+{
+  "_comment": "Copy to prod.json (gitignored) or inject via CI secret PROD_ENV_JSON. Build: flutter build appbundle --release --flavor prod --dart-define-from-file=config/env/prod.json",
+  "FLAVOR": "prod",
+  "SUPABASE_URL": "https://YOUR-PROD-REF.supabase.co",
+  "SUPABASE_ANON_KEY": "YOUR-PROD-ANON-KEY"
+}

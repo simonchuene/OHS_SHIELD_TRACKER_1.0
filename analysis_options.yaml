@@ -1,0 +1,22 @@
+# path: analysis_options.yaml
+include: package:flutter_lints/flutter.yaml
+
+analyzer:
+  language:
+    strict-casts: true
+    strict-raw-types: true
+  errors:
+    invalid_annotation_target: ignore   # freezed/json_serializable
+  exclude:
+    - "**/*.g.dart"
+    - "**/*.freezed.dart"
+    - "lib/generated/**"
+  # custom_lint plugin removed for the Dart 3.12 toolchain (see pubspec note).
+
+linter:
+  rules:
+    prefer_single_quotes: true
+    always_use_package_imports: true
+    require_trailing_commas: true
+    unawaited_futures: true
+    avoid_print: true
