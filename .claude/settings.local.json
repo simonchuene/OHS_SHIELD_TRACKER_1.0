@@ -23,7 +23,25 @@
       "Bash(git init *)",
       "Bash(git config *)",
       "Bash(git add *)",
-      "Bash(grep -E \"\\\\.g\\\\.dart$|\\\\.freezed\\\\.dart$|config/env/\\(dev|uat|prod\\)\\\\.json$|google-services\\\\.json|pubspec\\\\.lock|^build/\")"
+      "Bash(grep -E \"\\\\.g\\\\.dart$|\\\\.freezed\\\\.dart$|config/env/\\(dev|uat|prod\\)\\\\.json$|google-services\\\\.json|pubspec\\\\.lock|^build/\")",
+      "Bash(git commit *)",
+      "Bash(flutter devices *)",
+      "Bash(flutter doctor *)",
+      "Bash(mkdir -p 'C:\\\\Users\\\\schuene/AppData/Local/Temp/claude/C--Dev-OHS-SHIELD-TRACKER-1-0/ee7234dc-8037-48c1-89d0-ea2ea7233f98/scratchpad')",
+      "Bash(curl --ssl-no-revoke -sSL -o cmdtools.zip \"https://dl.google.com/android/repository/commandlinetools-win-11076708_latest.zip\" -w \"http=%{http_code} bytes=%{size_download}\\\\n\")",
+      "Bash(flutter config *)",
+      "Bash(grep -iA2 -E \"Android tool\")",
+      "Read(//c/Dev/OHS_SHIELD_TRACKER_1.0/**)",
+      "Bash(tasklist)",
+      "Bash(git check-ignore *)",
+      "Bash(curl --ssl-no-revoke -s -o /tmp/probe.json -w 'http=%{http_code}\\\\n' 'https://rordxhehhiblevdeppmy.supabase.co/rest/v1/roles?select=code&limit=5' -H 'apikey: sb_publishable_7s4j4j-J_5gdvEGZ68Ol4g_ajkls_cL' -H 'Authorization: Bearer sb_publishable_7s4j4j-J_5gdvEGZ68Ol4g_ajkls_cL')",
+      "Bash(curl --ssl-no-revoke -s -o /tmp/probe2.json -w 'http=%{http_code}\\\\n' 'https://rordxhehhiblevdeppmy.supabase.co/rest/v1/hazards?select=id&limit=1' -H 'apikey: sb_publishable_7s4j4j-J_5gdvEGZ68Ol4g_ajkls_cL' -H 'Authorization: Bearer sb_publishable_7s4j4j-J_5gdvEGZ68Ol4g_ajkls_cL')",
+      "Bash(mkdir -p supabase_cli)",
+      "Bash(tar -xzf supabase_win.zip -C supabase_cli)",
+      "Bash(./supabase_cli/supabase.exe --version)",
+      "Bash(awk '{print $NF, $5}')",
+      "Bash(git reset *)",
+      "Bash(git commit -q -m ' *)"
     ]
   }
 }

@@ -49,13 +49,15 @@ final goRouterProvider = Provider<GoRouter>((ref) {
     redirect: (context, state) {
       final loggedIn = client.auth.currentSession != null;
       final loc = state.matchedLocation;
-      final authRoutes = {Routes.splash, Routes.login, Routes.forgotPassword};
+
+      // Splash is transient: never linger on it — route straight to the right place.
+      if (loc == Routes.splash) return loggedIn ? Routes.dashboard : Routes.login;
+
+      final authRoutes = {Routes.login, Routes.forgotPassword};
       final onAuthRoute = authRoutes.contains(loc);
 
       if (!loggedIn && !onAuthRoute) return Routes.login;
-      if (loggedIn && (loc == Routes.login || loc == Routes.splash)) {
-        return Routes.dashboard;
-      }
+      if (loggedIn && onAuthRoute) return Routes.dashboard;
 
       // Role guard: Audit Viewer is SO/Manager/Admin (rank >= 3). RLS is the
       // authoritative gate; this only avoids a dead-end for unauthorised roles.

@@ -41,6 +41,7 @@ class AttachmentUploadQueue {
     _sub = connectivity.listen((online) {
       if (online) unawaited(drain());
     });
+    unawaited(drain()); // initial attempt at launch
   }
 
   Future<void> dispose() async => _sub?.cancel();

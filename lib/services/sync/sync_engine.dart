@@ -32,11 +32,13 @@ class SyncEngine {
   StreamSubscription<bool>? _connSub;
   bool _running = false;
 
-  /// Begin auto-syncing: drain whenever connectivity transitions to online.
+  /// Begin auto-syncing: drain now (in case we start online) and on every
+  /// transition to online thereafter.
   void start(Stream<bool> connectivity) {
     _connSub = connectivity.listen((online) {
       if (online) unawaited(drain());
     });
+    unawaited(drain()); // initial attempt at launch
   }
 
   Future<void> dispose() async => _connSub?.cancel();

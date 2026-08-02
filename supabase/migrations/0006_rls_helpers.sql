@@ -43,8 +43,10 @@ as $$
     and ur.company_id = (select company_id from public.user_profiles where user_id = auth.uid());
 $$;
 
--- Convenience threshold check.
-create or replace function app.has_min_rank(min_rank smallint)
+-- Convenience threshold check. Parameter is `integer` so callers can pass plain
+-- integer literals (e.g. app.has_min_rank(5)) — Postgres won't implicitly narrow
+-- integer -> smallint during function resolution.
+create or replace function app.has_min_rank(min_rank integer)
 returns boolean
 language sql stable security definer set search_path = public
 as $$
