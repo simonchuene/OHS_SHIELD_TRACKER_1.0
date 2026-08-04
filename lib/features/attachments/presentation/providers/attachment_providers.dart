@@ -63,7 +63,7 @@ Stream<int> pendingUploadCount(PendingUploadCountRef ref) =>
 @riverpod
 class AttachmentController extends _$AttachmentController {
   @override
-  FutureOr<void> build() {}
+  AsyncValue<void> build() => const AsyncData(null);
 
   /// Returns true on success (uploaded or queued), false on validation/other error.
   Future<bool> add({

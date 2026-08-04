@@ -69,7 +69,7 @@ Future<List<NamedRef>> siteDepartments(SiteDepartmentsRef ref, String siteId) as
 @riverpod
 class UserAdminActionController extends _$UserAdminActionController {
   @override
-  FutureOr<void> build() {}
+  AsyncValue<void> build() => const AsyncData(null);
 
   Future<bool> _run(Future<Result<void>> Function() op, {String? affectedUserId}) async {
     if (ref.read(connectivityStatusProvider).valueOrNull == false) {

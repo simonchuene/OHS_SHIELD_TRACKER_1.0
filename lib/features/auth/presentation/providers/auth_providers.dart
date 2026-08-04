@@ -66,8 +66,12 @@ int? authRoleRank(AuthRoleRankRef ref) =>
 
 @riverpod
 class SignInController extends _$SignInController {
+  // Holds an AsyncValue<void> directly (a plain Notifier) rather than a
+  // FutureOr<void> build (an AsyncNotifier): the latter completes an internal
+  // `.future` on the synchronous build, so manually driving state through
+  // AsyncLoading -> AsyncData threw "Future already completed".
   @override
-  FutureOr<void> build() {}
+  AsyncValue<void> build() => const AsyncData(null);
 
   /// Returns true on success; on failure exposes the error via [state].
   Future<bool> signIn({required String email, required String password}) async {
@@ -90,7 +94,7 @@ class SignInController extends _$SignInController {
 @riverpod
 class ForgotPasswordController extends _$ForgotPasswordController {
   @override
-  FutureOr<void> build() {}
+  AsyncValue<void> build() => const AsyncData(null);
 
   Future<bool> submit(String email) async {
     state = const AsyncLoading();

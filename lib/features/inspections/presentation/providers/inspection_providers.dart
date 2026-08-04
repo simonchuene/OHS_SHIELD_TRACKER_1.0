@@ -43,7 +43,7 @@ Future<Inspection> inspectionDetail(InspectionDetailRef ref, String id) async {
 @riverpod
 class InspectionController extends _$InspectionController {
   @override
-  FutureOr<void> build() {}
+  AsyncValue<void> build() => const AsyncData(null);
 
   Future<Inspection?> create(InspectionType type) async {
     final user = ref.read(currentUserProvider).valueOrNull;

@@ -63,7 +63,7 @@ class RiskCalculatorController extends _$RiskCalculatorController {
 @riverpod
 class SaveRiskController extends _$SaveRiskController {
   @override
-  FutureOr<void> build() {}
+  AsyncValue<void> build() => const AsyncData(null);
 
   Future<bool> submit(SaveRiskParams params) async {
     final user = ref.read(currentUserProvider).valueOrNull;

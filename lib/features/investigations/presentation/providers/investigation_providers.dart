@@ -49,7 +49,7 @@ Future<Investigation> investigationDetail(InvestigationDetailRef ref, String id)
 @riverpod
 class InvestigationController extends _$InvestigationController {
   @override
-  FutureOr<void> build() {}
+  AsyncValue<void> build() => const AsyncData(null);
 
   Future<bool> saveDetails(Investigation inv, Map<String, dynamic> changes) async {
     final user = ref.read(currentUserProvider).valueOrNull;

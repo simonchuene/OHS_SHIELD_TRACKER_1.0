@@ -117,7 +117,7 @@ Future<HazardGuardContext> hazardGuardContext(HazardGuardContextRef ref, String 
 @riverpod
 class HazardWorkflowController extends _$HazardWorkflowController {
   @override
-  FutureOr<void> build() {}
+  AsyncValue<void> build() => const AsyncData(null);
 
   Future<bool> advance(Hazard hazard) async {
     final to = HazardWorkflow.next(hazard.status);

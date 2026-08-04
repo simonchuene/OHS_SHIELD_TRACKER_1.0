@@ -32,7 +32,7 @@ int unreadNotificationCount(UnreadNotificationCountRef ref) =>
 @riverpod
 class NotificationController extends _$NotificationController {
   @override
-  FutureOr<void> build() {}
+  AsyncValue<void> build() => const AsyncData(null);
 
   Future<bool> markRead(String id) async {
     final res = await ref.read(notificationRepositoryProvider).markRead(id);

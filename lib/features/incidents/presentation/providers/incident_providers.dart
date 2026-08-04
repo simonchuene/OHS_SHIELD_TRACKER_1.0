@@ -93,7 +93,7 @@ class IncidentReportController extends _$IncidentReportController {
 @riverpod
 class IncidentActionController extends _$IncidentActionController {
   @override
-  FutureOr<void> build() {}
+  AsyncValue<void> build() => const AsyncData(null);
 
   Future<bool> advance(Incident incident) async {
     final to = IncidentWorkflow.next(incident.status);

@@ -62,7 +62,7 @@ Future<List<NamedUser>> companyUsers(CompanyUsersRef ref) async {
 @riverpod
 class CapaController extends _$CapaController {
   @override
-  FutureOr<void> build() {}
+  AsyncValue<void> build() => const AsyncData(null);
 
   Future<CorrectiveAction?> create({
     required String description,
