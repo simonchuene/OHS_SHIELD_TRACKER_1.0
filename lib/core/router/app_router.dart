@@ -89,12 +89,13 @@ final goRouterProvider = Provider<GoRouter>((ref) {
               path: Routes.hazards,
               builder: (_, __) => const HazardListScreen(),
               routes: [
-                GoRoute(path: 'new', builder: (_, __) => const HazardReportScreen()),
+                GoRoute(path: 'new', parentNavigatorKey: rootKey, builder: (_, __) => const HazardReportScreen()),
                 GoRoute(
                   path: ':id',
+                  parentNavigatorKey: rootKey,
                   builder: (_, s) => HazardDetailScreen(hazardId: s.pathParameters['id']!),
                   routes: [
-                    GoRoute(path: 'assess', builder: (_, s) => RiskAssessmentScreen(hazardId: s.pathParameters['id']!)),
+                    GoRoute(path: 'assess', parentNavigatorKey: rootKey, builder: (_, s) => RiskAssessmentScreen(hazardId: s.pathParameters['id']!)),
                   ],
                 ),
               ],
@@ -105,7 +106,7 @@ final goRouterProvider = Provider<GoRouter>((ref) {
               path: Routes.capa,
               builder: (_, __) => const CapaBoardScreen(),
               routes: [
-                GoRoute(path: ':id', builder: (_, s) => CapaDetailScreen(capaId: s.pathParameters['id']!)),
+                GoRoute(path: ':id', parentNavigatorKey: rootKey, builder: (_, s) => CapaDetailScreen(capaId: s.pathParameters['id']!)),
               ],
             ),
           ],),
@@ -121,31 +122,31 @@ final goRouterProvider = Provider<GoRouter>((ref) {
               path: Routes.adminUsers,
               builder: (_, __) => const UserListScreen(),
               routes: [
-                GoRoute(path: 'new', builder: (_, __) => const InviteUserScreen()),
-                GoRoute(path: ':id', builder: (_, s) => UserDetailScreen(userId: s.pathParameters['id']!)),
+                GoRoute(path: 'new', parentNavigatorKey: rootKey, builder: (_, __) => const InviteUserScreen()),
+                GoRoute(path: ':id', parentNavigatorKey: rootKey, builder: (_, s) => UserDetailScreen(userId: s.pathParameters['id']!)),
               ],
             ),
             GoRoute(
               path: Routes.incidents,
               builder: (_, __) => const IncidentListScreen(),
               routes: [
-                GoRoute(path: 'new', builder: (_, __) => const IncidentReportScreen()),
-                GoRoute(path: ':id', builder: (_, s) => IncidentDetailScreen(incidentId: s.pathParameters['id']!)),
+                GoRoute(path: 'new', parentNavigatorKey: rootKey, builder: (_, __) => const IncidentReportScreen()),
+                GoRoute(path: ':id', parentNavigatorKey: rootKey, builder: (_, s) => IncidentDetailScreen(incidentId: s.pathParameters['id']!)),
               ],
             ),
             GoRoute(
               path: Routes.investigations,
               builder: (_, __) => const InvestigationListScreen(),
               routes: [
-                GoRoute(path: ':id', builder: (_, s) => InvestigationDetailScreen(investigationId: s.pathParameters['id']!)),
+                GoRoute(path: ':id', parentNavigatorKey: rootKey, builder: (_, s) => InvestigationDetailScreen(investigationId: s.pathParameters['id']!)),
               ],
             ),
             GoRoute(
               path: Routes.inspections,
               builder: (_, __) => const InspectionListScreen(),
               routes: [
-                GoRoute(path: 'new', builder: (_, __) => const InspectionNewScreen()),
-                GoRoute(path: ':id/run', builder: (_, s) => InspectionRunScreen(inspectionId: s.pathParameters['id']!)),
+                GoRoute(path: 'new', parentNavigatorKey: rootKey, builder: (_, __) => const InspectionNewScreen()),
+                GoRoute(path: ':id/run', parentNavigatorKey: rootKey, builder: (_, s) => InspectionRunScreen(inspectionId: s.pathParameters['id']!)),
               ],
             ),
             GoRoute(path: Routes.reports, builder: (_, __) => const ReportScreen()),
@@ -154,7 +155,7 @@ final goRouterProvider = Provider<GoRouter>((ref) {
               path: Routes.audit,
               builder: (_, __) => const AuditListScreen(),
               routes: [
-                GoRoute(path: ':id', builder: (_, s) => AuditDetailScreen(auditId: s.pathParameters['id']!)),
+                GoRoute(path: ':id', parentNavigatorKey: rootKey, builder: (_, s) => AuditDetailScreen(auditId: s.pathParameters['id']!)),
               ],
             ),
             GoRoute(path: Routes.settings, builder: (_, __) => const PlaceholderScreen(title: 'Settings')),
