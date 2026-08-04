@@ -104,6 +104,30 @@ Ran on the installed toolchain **Flutter 3.44.6 / Dart 3.12.2** (newer than the 
 
 **Lint cleanup:** `dart fix --apply` → 272 fixes/71 files (trailing commas etc.) + manual fixes for `use_build_context_synchronously` (bottom-sheet callbacks capture `Navigator` before `await`) and `unawaited_futures` (`unawaited(context.push(...))`). Analyzer now **0 errors / 0 warnings / 9 info**. The remaining 9 are `deprecated_member_use` intentionally left — they're Flutter-3.44 deprecations (`SupabaseClient.anonKey`→publishableKey, `RadioListTile` groupValue/onChanged→RadioGroup, StreamProvider `.stream`) whose replacements don't exist on the pinned 3.24.5 target; fixing them would break the target SDK. Tests: **101/101 pass** after cleanup.
 
+## 9. Device Testing & Hardening (2026-08-04)
+On-device testing against the live Supabase backend (Samsung tablets + an Android emulator) surfaced and fixed several defects. Deployed the Edge Functions and verified the full hazard lifecycle end-to-end (report → advance → attach evidence → **close** via `workflow-transition`).
+
+**Rendering / layout:**
+- **Blank form/detail screens (11 screens):** the elevated/outlined button theme used `minimumSize: Size.fromHeight(52)` = `Size(∞, 52)`. A themed button inside a `Row` therefore demanded unbounded width, aborting the `Row`'s `RenderFlex` layout (`size: MISSING`) so the whole screen body never painted (AppBar only). Universal (not GPU) — proven via VM-service render/layer-tree dumps. **Fix:** bounded `minimumSize: Size(64, 52)`; full-width buttons still fill via `Column(stretch)`.
+- FABs were hidden behind the floating bottom-nav pill (`extendBody`) — feed the pill's footprint back as bottom `viewPadding` in `AppShell`.
+- Pushed detail/form sub-routes now render full-screen on the root navigator (`parentNavigatorKey: rootKey`), hiding the bottom pill.
+
+**Sync / offline:**
+- Sync engine + attachment upload queue now **start at app launch** (`ref.watch` in `OhsShieldApp`) with an initial drain — previously nothing synced (empty dashboard).
+- Outbox now **drains immediately on enqueue** (`OfflineMutationService.onEnqueued` → `SyncEngine.drain()`), not only on connectivity events/launch (actions were stuck "pending").
+- Hazard list is now resilient: caches server rows on read, re-queries when its tab regains focus (via `activeShellBranchProvider`), and its empty state is pull-to-refreshable — was showing a stale empty list.
+
+**Auth:**
+- The 11 screen action controllers changed from `FutureOr<void> build()` (AsyncNotifier — double-completed its internal `.future`) to `AsyncValue<void> build()` (plain Notifier). Fixes "Bad state: Future already completed" on every action.
+- An expired/dead session now signs out locally so the router routes to login (was stranding the user on an authed screen showing "Not signed in").
+
+**Backend / infra:**
+- Applied the full schema (`apply_all.sql`) + bootstrapped the first Administrator (`bootstrap_admin.sql`); fixed `app.has_min_rank` param `smallint`→`integer` (SQL 42883).
+- **Deployed all 4 Edge Functions** (`user-admin`, `workflow-transition`, `inspection-item-fail`, `notify-fanout`) via the Supabase CLI. All `verify_jwt=true`, app-invoked with the user JWT (no DB/webhook callers).
+- **DEBUG-ONLY (remove before release — see memory):** `DevHttpOverrides` + `assets/dev/corporate_ca.pem` trust a corporate Cisco Umbrella TLS-inspection CA so the app reaches Supabase from an emulator behind the proxy. Gated to `kDebugMode`; release builds unaffected.
+
+**Toolchain note:** briefly downgraded Flutter to 3.41.9 to test whether the blank screens were a 3.44 regression — they weren't (it was the theme bug above), so restored **3.44.6 / stable**.
+
 ## 7. Open Questions / Deviations Log
 - **OQ1:** Confirm `companies` table addition (D1) at Prompt 2A.
 - **OQ2:** Confirm typed-FK linkage vs. untyped polymorphic (D2) at Prompt 2A.
