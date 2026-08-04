@@ -2,12 +2,14 @@
 import 'dart:async';
 
 import 'package:ohs_shield_tracker/core/auth/session_providers.dart';
+import 'package:ohs_shield_tracker/core/error/failure.dart';
 import 'package:ohs_shield_tracker/core/providers/core_providers.dart';
 import 'package:ohs_shield_tracker/features/auth/application/auth_use_cases.dart';
 import 'package:ohs_shield_tracker/features/auth/data/repositories/auth_repository_impl.dart';
 import 'package:ohs_shield_tracker/features/auth/domain/entities/app_user.dart';
 import 'package:ohs_shield_tracker/features/auth/domain/repositories/auth_repository.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 part 'auth_providers.g.dart';
 
@@ -44,10 +46,23 @@ class CurrentUser extends _$CurrentUser {
   @override
   Future<AppUser?> build() async {
     ref.watch(authStateChangesProvider); // rebuild on sign-in/out/refresh
-    final repo = ref.watch(authRepositoryProvider);
-    if (!repo.hasSession) return null;
+    final client = ref.watch(supabaseClientProvider);
+    if (client.auth.currentSession == null) return null;
     final result = await ref.watch(loadCurrentUserUseCaseProvider).call();
-    return result.when(ok: (u) => u, err: (_) => null);
+    return result.when(
+      ok: (u) => u,
+      err: (f) {
+        // Profile load failed. If the session is expired (couldn't be refreshed)
+        // and the server actively rejected the request — rather than a transient
+        // network error — the session is effectively dead. Clear it locally so
+        // the router redirects to login instead of stranding the user on an
+        // authed screen showing "Not signed in".
+        if (f is! NetworkFailure && (client.auth.currentSession?.isExpired ?? false)) {
+          unawaited(client.auth.signOut(scope: SignOutScope.local));
+        }
+        return null;
+      },
+    );
   }
 
   Future<void> signOut() async {
