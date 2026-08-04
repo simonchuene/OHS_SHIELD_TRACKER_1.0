@@ -1,4 +1,6 @@
 // path: lib/services/sync/sync_providers.dart
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ohs_shield_tracker/core/database/app_database.dart';
 import 'package:ohs_shield_tracker/core/providers/core_providers.dart';
@@ -15,7 +17,12 @@ final appDatabaseProvider = Provider<AppDatabase>((ref) {
 });
 
 final offlineMutationServiceProvider = Provider<OfflineMutationService>((ref) {
-  return OfflineMutationService(ref.watch(appDatabaseProvider));
+  return OfflineMutationService(
+    ref.watch(appDatabaseProvider),
+    // Drain the outbox as soon as a mutation is queued (no dependency cycle:
+    // the engine does not depend on this service).
+    onEnqueued: () => unawaited(ref.read(syncEngineProvider).drain()),
+  );
 });
 
 /// Creates the engine and starts auto-sync bound to connectivity.

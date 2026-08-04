@@ -12,10 +12,16 @@ import 'package:uuid/uuid.dart';
 ///   2) appends a `sync_queue` entry,
 /// then returns immediately. The [SyncEngine] drains the queue when online.
 class OfflineMutationService {
-  OfflineMutationService(this._db, {Uuid uuid = const Uuid()}) : _uuid = uuid;
+  OfflineMutationService(this._db, {this.onEnqueued, Uuid uuid = const Uuid()})
+      : _uuid = uuid;
 
   final AppDatabase _db;
   final Uuid _uuid;
+
+  /// Called right after an entry is appended to the outbox. Wired to nudge the
+  /// [SyncEngine] to drain immediately (online), instead of leaving the change
+  /// "pending" until the next connectivity event or app launch.
+  final void Function()? onEnqueued;
 
   /// Queue a create. Client mints [entityId] (UUID PKs, D-schema-1) so the row
   /// is usable offline and stable after sync.
@@ -116,6 +122,7 @@ class OfflineMutationService {
       baseVersion: Value(baseVersion),
       status: Value(SyncStatus.pending.name),
     ),);
+    onEnqueued?.call();
     return id;
   }
 
