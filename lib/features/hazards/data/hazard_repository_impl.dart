@@ -1,6 +1,7 @@
 // path: lib/features/hazards/data/hazard_repository_impl.dart
 import 'dart:convert';
 
+import 'package:drift/drift.dart' show Value;
 import 'package:ohs_shield_tracker/core/database/app_database.dart';
 import 'package:ohs_shield_tracker/core/error/failure.dart';
 import 'package:ohs_shield_tracker/core/error/result.dart';
@@ -43,6 +44,16 @@ final class HazardRepositoryImpl extends BaseRepository implements HazardReposit
         for (final r in rows) {
           final h = HazardDto.fromJson(r).toEntity();
           byId[h.id] = h;
+          // Cache-on-read: persist the server row so a later offline/failed
+          // fetch falls back to last-known data instead of showing an empty list.
+          await _db.upsertCache(CachedRecordsCompanion(
+            entityType: Value(SyncEntity.hazard),
+            entityId: Value(h.id),
+            data: Value(jsonEncode(r)),
+            version: Value((r['version'] as num?)?.toInt() ?? h.version),
+            syncStatus: Value(SyncStatus.synced.name),
+            updatedAt: Value(DateTime.now()),
+          ),);
         }
       } catch (e, s) {
         logger.warn('Hazard list: server unavailable, using cache', e, s);

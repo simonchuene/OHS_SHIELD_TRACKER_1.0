@@ -1,14 +1,20 @@
 // path: lib/shared/widgets/app_shell.dart
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ohs_shield_tracker/core/theme/app_colors.dart';
 import 'package:ohs_shield_tracker/core/theme/app_radii.dart';
+
+/// The currently-visible shell branch index (0=Dashboard, 1=Hazards, 2=Actions,
+/// 3=More). Screens can `ref.listen` this to refresh when their tab regains
+/// focus (the IndexedStack keeps branches alive, so `build` alone won't re-run).
+final activeShellBranchProvider = StateProvider<int>((ref) => 0);
 
 /// Floating pill bottom navigation (Master Prompt Item 8), inset 12px with soft
 /// elevation. Active tab = filled green pill with inline label; inactive tabs
 /// show icon + label in Secondary Text. Hosts the StatefulShellRoute branches.
 /// This is the PERMANENT navigation framework — future modules mount under More.
-class AppShell extends StatelessWidget {
+class AppShell extends ConsumerWidget {
   const AppShell({required this.navigationShell, super.key});
   final StatefulNavigationShell navigationShell;
 
@@ -27,7 +33,15 @@ class AppShell extends StatelessWidget {
   static const double _navBarFootprint = 88;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Publish the active branch (deferred to avoid mutating provider state during
+    // build) so screens can refresh when their tab regains focus.
+    final index = navigationShell.currentIndex;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (ref.read(activeShellBranchProvider) != index) {
+        ref.read(activeShellBranchProvider.notifier).state = index;
+      }
+    });
     final media = MediaQuery.of(context);
     return Scaffold(
       extendBody: true,

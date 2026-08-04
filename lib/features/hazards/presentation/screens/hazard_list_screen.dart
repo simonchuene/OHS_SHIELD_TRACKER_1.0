@@ -10,6 +10,7 @@ import 'package:ohs_shield_tracker/features/hazards/presentation/providers/hazar
 import 'package:ohs_shield_tracker/features/hazards/presentation/widgets/hazard_ui.dart';
 import 'package:ohs_shield_tracker/services/sync/sync_models.dart';
 import 'package:ohs_shield_tracker/services/sync/sync_providers.dart';
+import 'package:ohs_shield_tracker/shared/widgets/app_shell.dart';
 import 'package:ohs_shield_tracker/shared/widgets/duotone_icon_badge.dart';
 import 'package:ohs_shield_tracker/shared/widgets/sync_status_badge.dart';
 
@@ -21,6 +22,12 @@ class HazardListScreen extends ConsumerWidget {
     final hazards = ref.watch(hazardListProvider);
     final filter = ref.watch(hazardFilterControllerProvider);
     final ctrl = ref.read(hazardFilterControllerProvider.notifier);
+
+    // Re-fetch when the Hazards tab (branch index 1) regains focus, so switching
+    // back to it never shows a stale list.
+    ref.listen(activeShellBranchProvider, (prev, next) {
+      if (next == 1 && prev != next) ref.invalidate(hazardListProvider);
+    });
 
     return Scaffold(
       appBar: AppBar(title: const Text('Hazards')),
@@ -60,17 +67,27 @@ class HazardListScreen extends ConsumerWidget {
             child: hazards.when(
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (e, _) => Center(child: Text('Could not load hazards: $e')),
-              data: (list) => list.isEmpty
-                  ? const _EmptyHazards()
-                  : RefreshIndicator(
-                      onRefresh: () async => ref.invalidate(hazardListProvider),
-                      child: ListView.separated(
+              data: (list) => RefreshIndicator(
+                onRefresh: () async => ref.invalidate(hazardListProvider),
+                child: list.isEmpty
+                    // Keep the empty state pull-to-refreshable so the user can
+                    // recover from a transient/stale empty result.
+                    ? LayoutBuilder(
+                        builder: (context, constraints) => SingleChildScrollView(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          child: ConstrainedBox(
+                            constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                            child: const _EmptyHazards(),
+                          ),
+                        ),
+                      )
+                    : ListView.separated(
                         padding: const EdgeInsets.all(16),
                         itemCount: list.length,
                         separatorBuilder: (_, __) => const SizedBox(height: 10),
                         itemBuilder: (_, i) => _HazardRow(hazard: list[i]),
                       ),
-                    ),
+              ),
             ),
           ),
         ],
