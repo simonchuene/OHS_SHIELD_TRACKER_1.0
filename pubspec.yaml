@@ -77,6 +77,10 @@ flutter:
   uses-material-design: true
   assets:
     - assets/branding/app_icon.svg
+    # Debug-only: corporate TLS-inspection CA, trusted by DevHttpOverrides in
+    # debug builds so the app can reach Supabase from behind a Cisco Umbrella
+    # gateway (e.g. an emulator on the corporate network). Never used in release.
+    - assets/dev/corporate_ca.pem
   # Inter font: add the real .ttf files under assets/fonts/ then re-enable the
   # `fonts:` block below (assets are placeholders — Master Prompt Item 1a).
   # Until then the theme's 'Inter' family falls back to Roboto/system.
