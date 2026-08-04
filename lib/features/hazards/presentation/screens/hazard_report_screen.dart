@@ -100,9 +100,11 @@ class _HazardReportScreenState extends ConsumerState<HazardReportScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('Report hazard')),
       body: SafeArea(
-        child: Form(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Form(
           key: _formKey,
-          child: ListView(padding: const EdgeInsets.all(16), children: [
+          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             TextFormField(
               controller: _title,
               decoration: const InputDecoration(labelText: 'Title *', hintText: 'Short description of the hazard'),
@@ -158,6 +160,7 @@ class _HazardReportScreenState extends ConsumerState<HazardReportScreen> {
             const SizedBox(height: 8),
             OutlinedButton(onPressed: busy ? null : () => _submit(submitNow: false), child: const Text('Save as draft')),
           ],),
+        ),
         ),
       ),
     );

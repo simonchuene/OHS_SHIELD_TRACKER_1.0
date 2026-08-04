@@ -40,11 +40,16 @@ abstract final class AppTheme {
         shadowColor: Colors.black.withValues(alpha: 0.08),
         shape: const RoundedRectangleBorder(borderRadius: AppRadii.standardCard),
       ),
+      // NOTE: use a bounded minimum width (min height 52), NOT Size.fromHeight
+      // (which is Size(infinity, 52)). An infinite minimum width makes a themed
+      // button demand unbounded width inside a Row, which aborts RenderFlex
+      // layout and leaves the whole subtree unpainted. Full-width buttons still
+      // fill their width via the surrounding Column's stretch / a SizedBox.
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.primaryGreen,
           foregroundColor: Colors.white,
-          minimumSize: const Size.fromHeight(52),
+          minimumSize: const Size(64, 52),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppRadii.button),
           ),
@@ -54,7 +59,7 @@ abstract final class AppTheme {
         style: OutlinedButton.styleFrom(
           foregroundColor: AppColors.infoBlue,
           side: const BorderSide(color: AppColors.infoBlue),
-          minimumSize: const Size.fromHeight(52),
+          minimumSize: const Size(64, 52),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppRadii.button),
           ),
