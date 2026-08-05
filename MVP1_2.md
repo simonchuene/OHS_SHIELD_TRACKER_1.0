@@ -8,6 +8,27 @@ Your task is to design and build an enterprise-grade Occupational Health & Safet
 
 ---
 
+## PROJECT STATUS (updated 2026-08-05)
+
+> Living status note. The requirements below are unchanged (canonical). This block records what has actually been built and hardened. Full decision/hardening log: `DECISIONS_LEDGER.md` (§8 compile pass, §9–§10 device testing).
+
+**Build: complete.** The MVP1 sequence (Prompts 1–18 + 4C/5A/8A) is implemented — all 11 feature modules (Auth/User-Mgmt, Hazards, Risk, Incidents, Investigations, CAPA, Inspections, Dashboard, Reporting, Notifications, Audit), offline-first sync (outbox + cache + LWW/field-merge), RLS + `app.*` helpers, and 4 Edge Functions (`user-admin`, `workflow-transition`, `inspection-item-fail`, `notify-fanout`). Toolchain in use: Flutter 3.44.6 / Dart 3.12.2 (target pin 3.24.5). Tests green.
+
+**Deployed & device-tested.** Running against a live Supabase backend on Android (emulator + tablets). Two hardening rounds (§9 2026-08-04, §10 2026-08-05) fixed: the universal blank-screen theme bug, sync-on-launch/enqueue, action-controller & session-expiry auth bugs, the stale read-after-write (transitions needing a second tap), and several list/dashboard defects.
+
+**Recent product enhancements (2026-08-05), extending — not redesigning — the master design system:**
+- Dashboard **Today's Priorities**: top open hazards + CAPAs + incidents, ranked severity → overdue → soonest-due → most-recently-updated; two-line KPI labels; safety-score 7-day trend delta.
+- **Hazard ↔ CAPA linkage** surfaced on both detail pages (list + navigate).
+- **CAPA**: owner may start work without Supervisor rank (RLS 0016); overdue now triggers the day *after* the due date; risk filter = band-or-more-severe.
+- **Loading UX**: shimmer skeletons replace spinners (dashboard, hazard/CAPA list & detail); Actions page defaults to a status-grouped list.
+- Android `compileSdk` pinned to 36.
+
+**Known pre-release TODO:** remove the DEBUG-ONLY corporate-CA trust (`DevHttpOverrides` + `assets/dev/corporate_ca.pem`, gated to `kDebugMode`) before any public/release build.
+
+**Deferred (post-MVP1, unchanged):** licensing/seats (MVP2), server-side `dashboard-aggregates`, JWT-claims access-token hook, Realtime.
+
+---
+
 ## BUSINESS GOAL
 
 The application must help organizations:
