@@ -108,16 +108,23 @@ final class HazardRepositoryImpl extends BaseRepository implements HazardReposit
   @override
   Future<Result<Hazard>> getHazard(String id) {
     return run(() async {
+      final match = (await _db.cachedByType(SyncEntity.hazard)).where((c) => c.entityId == id);
+      final cached = match.isEmpty ? null : match.first;
+      // Prefer an unsynced local write over the server so a status transition
+      // shows immediately instead of appearing to need a second tap (the server
+      // still returns the pre-edit row until the outbox drains).
+      if (cached != null &&
+          (cached.syncStatus == SyncStatus.pending.name || cached.syncStatus == SyncStatus.syncing.name)) {
+        return HazardDto.fromJson(jsonDecode(cached.data) as Map<String, dynamic>).toEntity();
+      }
       try {
         final row = await _client.from('hazards').select().eq('id', id).maybeSingle();
         if (row != null) return HazardDto.fromJson(row).toEntity();
       } catch (e, s) {
         logger.warn('getHazard: server unavailable, using cache', e, s);
       }
-      final cached = await _db.cachedByType(SyncEntity.hazard);
-      final match = cached.where((c) => c.entityId == id);
-      if (match.isNotEmpty) {
-        return HazardDto.fromJson(jsonDecode(match.first.data) as Map<String, dynamic>).toEntity();
+      if (cached != null) {
+        return HazardDto.fromJson(jsonDecode(cached.data) as Map<String, dynamic>).toEntity();
       }
       throw StateError('Hazard not found: $id');
     }, context: 'getHazard',);

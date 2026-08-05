@@ -11,6 +11,7 @@ import 'package:ohs_shield_tracker/features/capa/domain/entities/corrective_acti
 import 'package:ohs_shield_tracker/features/capa/domain/repositories/capa_repository.dart';
 import 'package:ohs_shield_tracker/repositories/base_repository.dart';
 import 'package:ohs_shield_tracker/services/sync/offline_mutation_service.dart';
+import 'package:ohs_shield_tracker/services/sync/sync_models.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 
@@ -61,15 +62,24 @@ final class CapaRepositoryImpl extends BaseRepository implements CapaRepository 
   @override
   Future<Result<CorrectiveAction>> get(String id) {
     return run(() async {
+      final match = (await _db.cachedByType(_entity)).where((c) => c.entityId == id);
+      final cached = match.isEmpty ? null : match.first;
+      // An unsynced local write is the source of truth until it reconciles with
+      // the server. Reading the server first here returned the pre-edit row, so a
+      // status transition looked like nothing happened until a second tap (by
+      // which point the first write had synced). Prefer the optimistic cache
+      // while a mutation is still pending/syncing.
+      if (cached != null &&
+          (cached.syncStatus == SyncStatus.pending.name || cached.syncStatus == SyncStatus.syncing.name)) {
+        return CapaDto.fromJson(jsonDecode(cached.data) as Map<String, dynamic>).toEntity();
+      }
       try {
         final row = await _client.from('corrective_actions').select().eq('id', id).maybeSingle();
         if (row != null) return CapaDto.fromJson(row).toEntity();
       } catch (e, s) {
         logger.warn('getCapa: server unavailable, using cache', e, s);
       }
-      final cached = await _db.cachedByType(_entity);
-      final match = cached.where((c) => c.entityId == id);
-      if (match.isNotEmpty) return CapaDto.fromJson(jsonDecode(match.first.data) as Map<String, dynamic>).toEntity();
+      if (cached != null) return CapaDto.fromJson(jsonDecode(cached.data) as Map<String, dynamic>).toEntity();
       throw StateError('CAPA not found: $id');
     }, context: 'getCapa',);
   }
