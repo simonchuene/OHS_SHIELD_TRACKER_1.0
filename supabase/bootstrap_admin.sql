@@ -10,8 +10,8 @@
 
 do $$
 declare
-  v_user    uuid := '00000000-0000-0000-0000-000000000000';  -- <<< PASTE the auth user UID
-  v_email   text := 'admin@example.com';                     -- <<< the email you created
+  v_user    uuid := 'b599024a-8ea5-4b25-b465-99551f6bb292';  -- <<< PASTE the auth user UID
+  v_email   text := 'lschuene@gmail.com';                     -- <<< the email you created
   v_company uuid := gen_random_uuid();
   v_site    uuid := gen_random_uuid();
   v_dept    uuid := gen_random_uuid();
