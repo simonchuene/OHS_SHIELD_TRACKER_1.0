@@ -17,6 +17,7 @@ import 'package:ohs_shield_tracker/features/hazards/domain/entities/hazard_filte
 import 'package:ohs_shield_tracker/features/hazards/presentation/providers/hazard_providers.dart';
 import 'package:ohs_shield_tracker/shared/domain/risk_band.dart';
 import 'package:ohs_shield_tracker/shared/widgets/app_shell.dart';
+import 'package:ohs_shield_tracker/shared/widgets/skeleton.dart';
 
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
@@ -48,7 +49,7 @@ class DashboardScreen extends ConsumerWidget {
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: async.when(
-                loading: () => const Padding(padding: EdgeInsets.only(top: 60), child: Center(child: CircularProgressIndicator())),
+                loading: () => const _DashboardSkeleton(),
                 error: (e, _) => Padding(padding: const EdgeInsets.only(top: 40), child: Center(child: Text('Could not load dashboard.\n$e', textAlign: TextAlign.center))),
                 data: (d) => _Content(data: d),
               ),
@@ -58,6 +59,36 @@ class DashboardScreen extends ConsumerWidget {
       ),
     );
   }
+}
+
+/// Loading placeholder shaped like [_Content] (score card, KPI row, rate cards,
+/// chart) so the dashboard looks structurally complete while data resolves.
+class _DashboardSkeleton extends StatelessWidget {
+  const _DashboardSkeleton();
+  @override
+  Widget build(BuildContext context) => const Shimmer(
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          SkeletonBox(width: double.infinity, height: 132, radius: 16), // safety score
+          SizedBox(height: 16),
+          Row(children: [
+            Expanded(child: SkeletonBox(height: 108, radius: 14)),
+            SizedBox(width: 8),
+            Expanded(child: SkeletonBox(height: 108, radius: 14)),
+            SizedBox(width: 8),
+            Expanded(child: SkeletonBox(height: 108, radius: 14)),
+            SizedBox(width: 8),
+            Expanded(child: SkeletonBox(height: 108, radius: 14)),
+          ],),
+          SizedBox(height: 16),
+          Row(children: [
+            Expanded(child: SkeletonBox(height: 84, radius: 14)),
+            SizedBox(width: 8),
+            Expanded(child: SkeletonBox(height: 84, radius: 14)),
+          ],),
+          SizedBox(height: 16),
+          SkeletonBox(width: double.infinity, height: 180, radius: 16), // chart
+        ],),
+      );
 }
 
 class _Content extends ConsumerWidget {
