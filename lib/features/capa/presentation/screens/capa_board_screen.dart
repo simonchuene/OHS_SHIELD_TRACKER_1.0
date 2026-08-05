@@ -45,12 +45,48 @@ class _CapaBoardScreenState extends ConsumerState<CapaBoardScreen> {
   }
 }
 
-class _Kanban extends StatelessWidget {
+class _Kanban extends StatefulWidget {
   const _Kanban({required this.list});
   final List<CorrectiveAction> list;
   @override
+  State<_Kanban> createState() => _KanbanState();
+}
+
+class _KanbanState extends State<_Kanban> {
+  final _controller = ScrollController();
+  // Column width (260) + right margin (12).
+  static const double _columnExtent = 272;
+
+  @override
+  void initState() {
+    super.initState();
+    // The board has five columns but only ~1.5 fit on screen, so a CAPA sitting
+    // in a later stage (e.g. In Progress) looks absent behind the empty Created/
+    // Assigned columns. Scroll to the first column that actually has cards so the
+    // work in progress is visible without the user hunting for it.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _revealFirstNonEmpty());
+  }
+
+  void _revealFirstNonEmpty() {
+    if (!_controller.hasClients) return;
+    final idx = CapaStatus.values.indexWhere(
+      (s) => widget.list.any((c) => c.status == s),
+    );
+    if (idx <= 0) return; // nothing, or the first column is already visible
+    final target = (idx * _columnExtent).clamp(0.0, _controller.position.maxScrollExtent);
+    _controller.animateTo(target, duration: const Duration(milliseconds: 350), curve: Curves.easeOut);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
+      controller: _controller,
       scrollDirection: Axis.horizontal,
       padding: const EdgeInsets.all(12),
       child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -61,10 +97,10 @@ class _Kanban extends StatelessWidget {
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 8),
-                child: Text('${status.label} · ${list.where((c) => c.status == status).length}',
+                child: Text('${status.label} · ${widget.list.where((c) => c.status == status).length}',
                     style: Theme.of(context).textTheme.titleLarge,),
               ),
-              for (final c in list.where((c) => c.status == status)) _CapaCard(capa: c),
+              for (final c in widget.list.where((c) => c.status == status)) _CapaCard(capa: c),
             ],),
           ),
       ],),
