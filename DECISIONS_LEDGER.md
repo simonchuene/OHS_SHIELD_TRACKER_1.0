@@ -128,6 +128,31 @@ On-device testing against the live Supabase backend (Samsung tablets + an Androi
 
 **Toolchain note:** briefly downgraded Flutter to 3.41.9 to test whether the blank screens were a 3.44 regression — they weren't (it was the theme bug above), so restored **3.44.6 / stable**.
 
+## 10. Device Testing & Hardening — Round 2 (2026-08-05)
+Continued on-device testing (Android emulator, live backend) fixed further defects and settled several product/UX decisions.
+
+**Dashboard:**
+- Stopped the cold-start flash of "Could not load dashboard · Bad state: Not signed in": `dashboardData` now `await`s `currentUserProvider.future` (it read `.valueOrNull`, which is null *while the profile loads*, not only when signed out) so it holds the loading state until the user is known.
+- Auto-refreshes its aggregates when the Dashboard tab (branch 0) regains focus (mirrors the hazard-list re-query via `activeShellBranchProvider`), so hazard/CAPA changes on other tabs show without a manual pull-to-refresh.
+- Scrolls clear of the floating nav pill (`ListView` bottom padding = nav footprint) — the Department risk ranking section was pinned behind the pill.
+- Loading state is now a layout-shaped **shimmer skeleton** (shared `Shimmer`/`SkeletonBox`/`SkeletonList`/`SkeletonDetail` in `lib/shared/widgets/skeleton.dart`) instead of a bare spinner. Rolled out to the hazard/CAPA **list + detail** loading states too.
+
+**Hazard / CAPA workflow & RBAC:**
+- **Read-after-write:** `get()` (hazard + CAPA repos) now prefers an unsynced local write (cache `pending`/`syncing`) over the server, so a queued status transition shows on the **first** tap instead of appearing to need a second (the server returned the pre-edit row until the outbox drained; the second tap only worked because the first had synced).
+- **CAPA overdue = the day *after* the due date** (was the due date itself). Shared day-granular `CorrectiveAction.isPastDue(due,{now})` used by the entity getter, `CapaEscalationRules`, and the dashboard overdue count. Previously `dueDate.isBefore(now)` with the date parsed as local midnight ⇒ overdue for the whole due day, and a CAPA "due today" was instantly overdue. *(Amends §3 CAPA module.)*
+- **CAPA owner may Start work:** Assigned → In Progress is now permitted for the assigned owner without Supervisor rank (client `CapaGuardContext.isOwner`; RLS **migration 0016** adds `owner_id = auth.uid()` to the `capa_update` USING clause). Verification/Closed still require Safety Officer+ (WITH CHECK unchanged) — owners cannot self-verify or self-close. *(Amends §3 CAPA module + §5 rank gates.)*
+- **Risk filter = "this band or more severe":** a hazard risk filter now matches high **and** critical (server `inFilter` + cached re-apply), so the dashboard High Risk KPI (which counts high+critical) matches the list it opens; an exact-`high` match was hiding Critical hazards.
+
+**Hazard ↔ CAPA linkage (visibility):**
+- Hazard detail now lists its linked corrective actions (open first) with tap-through; the "Add CAPA" button moved here from the mislabeled "Investigations" section. CAPA detail gained an "Open <source>" link to its originating hazard/incident/investigation. Backed by `CapaRepository.listForHazard` + `capasForHazardProvider`. Motivated by "all linked corrective actions must be closed first" being unactionable when the links weren't visible on either page.
+
+**Hazards list / Actions UX:**
+- Fixed the hazards list looking empty behind an invisible, unclearable risk filter arriving from the dashboard High Risk KPI: the **All** chip now clears risk too (and is "selected" only when no status/risk/mine filter is active); the empty state is filter-aware with a **Clear filters** action (`HazardFilter.isActive`).
+- Actions (CAPA) page defaults to a **status-grouped vertical list** (each non-empty stage as a "Status · N" section); the Kanban stays behind the toggle and auto-scrolls to the first non-empty column (a lone open action in a later column looked like an empty board).
+
+**Build:**
+- `compileSdk` pinned to **36** (app `build.gradle.kts` + every Android library subproject via an `afterEvaluate` hook in the root `build.gradle.kts`) — a transitive plugin (`flutter_plugin_android_lifecycle`, via file_picker/image_picker) now requires apps/libraries to compile against API 36.
+
 ## 7. Open Questions / Deviations Log
 - **OQ1:** Confirm `companies` table addition (D1) at Prompt 2A.
 - **OQ2:** Confirm typed-FK linkage vs. untyped polymorphic (D2) at Prompt 2A.
