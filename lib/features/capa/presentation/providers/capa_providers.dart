@@ -108,10 +108,15 @@ class CapaController extends _$CapaController {
 
   Future<bool> advance(CorrectiveAction capa, CapaStatus to) async {
     final rank = ref.read(authRoleRankProvider) ?? 0;
+    final userId = ref.read(currentUserProvider).valueOrNull?.id;
     final hasEvidence = to == CapaStatus.closed ? await _hasEvidence(capa.id) : false;
     final TransitionCheck check = CapaWorkflow.canTransition(
       from: capa.status, to: to, roleRank: rank,
-      guard: CapaGuardContext(hasOwner: capa.hasOwner, hasVerificationEvidence: hasEvidence),
+      guard: CapaGuardContext(
+        hasOwner: capa.hasOwner,
+        hasVerificationEvidence: hasEvidence,
+        isOwner: userId != null && capa.ownerId == userId,
+      ),
     );
     if (!check.allowed) return _fail(ValidationFailure(check.reason ?? 'Transition not allowed.'));
 

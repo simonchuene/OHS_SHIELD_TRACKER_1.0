@@ -979,7 +979,10 @@ create policy capa_insert on public.corrective_actions
   with check (company_id = app.current_company_id() and app.has_min_rank(2));
 create policy capa_update on public.corrective_actions
   for update to authenticated
-  using (company_id = app.current_company_id() and app.has_min_rank(2))
+  using (
+    company_id = app.current_company_id()
+    and (app.has_min_rank(2) or owner_id = auth.uid())  -- owner may start work on their own CAPA (0016)
+  )
   with check (
     company_id = app.current_company_id()
     and (status not in ('verification','closed') or app.has_min_rank(3))  -- Verify & Close CAPA = SO+

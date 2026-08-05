@@ -5,9 +5,13 @@ import 'package:ohs_shield_tracker/features/hazards/domain/hazard_workflow.dart'
 
 /// Guard data resolved before a transition.
 class CapaGuardContext {
-  const CapaGuardContext({this.hasOwner = false, this.hasVerificationEvidence = false});
+  const CapaGuardContext({this.hasOwner = false, this.hasVerificationEvidence = false, this.isOwner = false});
   final bool hasOwner;
   final bool hasVerificationEvidence;
+
+  /// Whether the acting user is this CAPA's assigned owner — lets them start work
+  /// on their own action without needing Supervisor rank.
+  final bool isOwner;
 }
 
 /// CAPA lifecycle: Created → Assigned → In Progress → Verification → Closed.
@@ -48,10 +52,13 @@ abstract final class CapaWorkflow {
     if (_forward[from] != to) {
       return TransitionCheck.deny('Cannot move from ${from.label} to ${to.label}.');
     }
-    if (roleRank < minRankFor(to)) {
+    final g = guard ?? const CapaGuardContext();
+    // The assigned owner may start work on their own action (Assigned → In
+    // Progress) even without Supervisor rank; every other step keeps its rank gate.
+    final ownerStartingWork = to == CapaStatus.inProgress && g.isOwner;
+    if (roleRank < minRankFor(to) && !ownerStartingWork) {
       return const TransitionCheck.deny('You do not have permission for this action.');
     }
-    final g = guard ?? const CapaGuardContext();
     if (to == CapaStatus.assigned && !g.hasOwner) {
       return const TransitionCheck.deny('Assign an owner first.');
     }

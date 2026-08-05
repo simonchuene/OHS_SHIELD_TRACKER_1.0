@@ -36,6 +36,24 @@ void main() {
     expect(withEvidence.allowed, isTrue);
   });
 
+  test('assigned owner may start work without Supervisor rank', () {
+    // Employee-rank (1) owner can move their own CAPA Assigned -> In Progress.
+    final owner = CapaWorkflow.canTransition(
+        from: CapaStatus.assigned, to: CapaStatus.inProgress, roleRank: 1, guard: const CapaGuardContext(isOwner: true),);
+    expect(owner.allowed, isTrue);
+    // A non-owner of the same low rank still cannot.
+    final nonOwner = CapaWorkflow.canTransition(
+        from: CapaStatus.assigned, to: CapaStatus.inProgress, roleRank: 1, guard: const CapaGuardContext(),);
+    expect(nonOwner.allowed, isFalse);
+  });
+
+  test('owner exception does not extend past In Progress', () {
+    // Being the owner never lets a low rank push into Verification/Closed.
+    final toVerification = CapaWorkflow.canTransition(
+        from: CapaStatus.inProgress, to: CapaStatus.verification, roleRank: 1, guard: const CapaGuardContext(isOwner: true),);
+    expect(toVerification.allowed, isFalse);
+  });
+
   test('closed is terminal; non-adjacent denied', () {
     expect(CapaWorkflow.canTransition(from: CapaStatus.closed, to: CapaStatus.verification, roleRank: 5).allowed, isFalse);
     expect(CapaWorkflow.canTransition(from: CapaStatus.created, to: CapaStatus.closed, roleRank: 5).allowed, isFalse);
