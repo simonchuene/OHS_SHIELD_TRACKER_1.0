@@ -10,7 +10,10 @@ plugins {
 
 android {
     namespace = "com.ohsshield.ohs_shield_tracker"
-    compileSdk = flutter.compileSdkVersion
+    // Pinned to 36: flutter_plugin_android_lifecycle (via file_picker/image_picker)
+    // now requires apps to compile against API 36. flutter.compileSdkVersion still
+    // resolves to 35 on this Flutter version, so set it explicitly.
+    compileSdk = 36
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
