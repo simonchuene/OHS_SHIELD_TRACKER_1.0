@@ -33,7 +33,20 @@ class CorrectiveAction with _$CorrectiveAction {
 
   bool get isClosed => status.isClosed;
   bool get hasOwner => ownerId != null;
-  bool get isOverdue => dueDate != null && !isClosed && dueDate!.isBefore(DateTime.now());
+  bool get isOverdue => !isClosed && isPastDue(dueDate);
+
+  /// Whether a due date has fully elapsed. The stored `due_date` is a calendar
+  /// date, so a CAPA is only overdue from the *start of the following day* — one
+  /// due today is not overdue until tomorrow. Compared day-granular so the
+  /// current time of day doesn't matter. Shared by the escalation rules and the
+  /// dashboard's overdue count so the definition stays in one place.
+  static bool isPastDue(DateTime? dueDate, {DateTime? now}) {
+    if (dueDate == null) return false;
+    final today = now ?? DateTime.now();
+    final dueDay = DateTime(dueDate.year, dueDate.month, dueDate.day);
+    final nowDay = DateTime(today.year, today.month, today.day);
+    return nowDay.isAfter(dueDay);
+  }
 
   CapaSource get source {
     if (hazardId != null) return CapaSource.hazard;

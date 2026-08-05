@@ -24,6 +24,20 @@ void main() {
   test('due soon within 2 days', () {
     expect(CapaEscalationRules.evaluate(capa(status: CapaStatus.assigned, priority: CapaPriority.low, due: now.add(const Duration(days: 1))), now), CapaEscalation.dueSoon);
   });
+  test('not overdue on the due date itself (due today)', () {
+    final e = CapaEscalationRules.evaluate(
+      capa(status: CapaStatus.assigned, priority: CapaPriority.medium, due: DateTime(2026, 8, 1)),
+      DateTime(2026, 8, 1, 23, 59),
+    );
+    expect(e, isNot(CapaEscalation.overdue));
+  });
+  test('overdue the day after the due date', () {
+    final e = CapaEscalationRules.evaluate(
+      capa(status: CapaStatus.assigned, priority: CapaPriority.medium, due: DateTime(2026, 8, 1)),
+      DateTime(2026, 8, 2, 0, 1),
+    );
+    expect(e, CapaEscalation.overdue);
+  });
   test('no due date, non-critical → none', () {
     expect(CapaEscalationRules.evaluate(capa(status: CapaStatus.assigned, priority: CapaPriority.medium), now), CapaEscalation.none);
   });

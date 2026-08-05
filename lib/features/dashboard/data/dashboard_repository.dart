@@ -7,6 +7,7 @@ import 'package:ohs_shield_tracker/core/error/result.dart';
 import 'package:ohs_shield_tracker/core/logging/logger_service.dart';
 import 'package:drift/drift.dart' show Value;
 import 'package:ohs_shield_tracker/features/auth/domain/entities/app_role.dart';
+import 'package:ohs_shield_tracker/features/capa/domain/entities/corrective_action.dart';
 import 'package:ohs_shield_tracker/features/dashboard/domain/dashboard_data.dart';
 import 'package:ohs_shield_tracker/features/dashboard/domain/dashboard_scope.dart';
 import 'package:ohs_shield_tracker/features/dashboard/domain/safety_score.dart';
@@ -46,7 +47,7 @@ class DashboardRepository {
       final overdueCapas = capas.where((c) {
         if (!open(c['status'] as String?)) return false;
         final due = c['due_date'] != null ? DateTime.tryParse(c['due_date'] as String) : null;
-        return due != null && due.isBefore(now);
+        return CorrectiveAction.isPastDue(due, now: now);
       }).length;
       final closedCapas = capas.where((c) => c['status'] == 'closed').length;
       final capaClosureRate = capas.isEmpty ? 0.0 : closedCapas / capas.length;
