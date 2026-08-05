@@ -35,7 +35,9 @@ class DashboardScreen extends ConsumerWidget {
     return Scaffold(
       body: RefreshIndicator(
         onRefresh: () async => ref.invalidate(dashboardDataProvider),
-        child: ListView(padding: EdgeInsets.zero, children: [
+        // Bottom padding clears the floating nav pill so the last section
+        // (Department risk ranking) can scroll fully into view.
+        child: ListView(padding: EdgeInsets.only(bottom: MediaQuery.of(context).padding.bottom + 16), children: [
           CurvedHeroHeader(
             firstName: user?.firstNameOrEmail ?? '',
             initials: user?.initials ?? '?',

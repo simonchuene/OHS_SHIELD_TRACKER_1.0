@@ -18,7 +18,10 @@ class CapaBoardScreen extends ConsumerStatefulWidget {
 }
 
 class _CapaBoardScreenState extends ConsumerState<CapaBoardScreen> {
-  bool _kanban = true;
+  // Default to the vertical status-grouped list: the Kanban's later columns
+  // scroll off-screen with no affordance, so an only-open action can look like
+  // an empty board. Kanban stays available via the toggle.
+  bool _kanban = false;
 
   @override
   Widget build(BuildContext context) {
@@ -108,14 +111,29 @@ class _KanbanState extends State<_Kanban> {
   }
 }
 
+/// Vertical list grouped by status — the Kanban's columns laid out top-to-bottom
+/// so every stage is reachable by scrolling down (only non-empty stages shown).
 class _List extends StatelessWidget {
   const _List({required this.list});
   final List<CorrectiveAction> list;
   @override
-  Widget build(BuildContext context) => ListView(
-        padding: const EdgeInsets.all(16),
-        children: [for (final c in list) _CapaCard(capa: c)],
-      );
+  Widget build(BuildContext context) {
+    final byStatus = {for (final s in CapaStatus.values) s: list.where((c) => c.status == s).toList()};
+    return ListView(
+      padding: EdgeInsets.fromLTRB(16, 8, 16, MediaQuery.of(context).padding.bottom + 16),
+      children: [
+        for (final s in CapaStatus.values)
+          if (byStatus[s]!.isNotEmpty) ...[
+            Padding(
+              padding: const EdgeInsets.only(top: 8, bottom: 6),
+              child: Text('${s.label} · ${byStatus[s]!.length}',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(color: AppColors.secondaryText),),
+            ),
+            for (final c in byStatus[s]!) _CapaCard(capa: c),
+          ],
+      ],
+    );
+  }
 }
 
 class _CapaCard extends StatelessWidget {
