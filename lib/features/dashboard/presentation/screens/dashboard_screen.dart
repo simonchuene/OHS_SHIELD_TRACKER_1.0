@@ -16,6 +16,7 @@ import 'package:ohs_shield_tracker/features/dashboard/presentation/widgets/risk_
 import 'package:ohs_shield_tracker/features/hazards/domain/entities/hazard_filter.dart';
 import 'package:ohs_shield_tracker/features/hazards/presentation/providers/hazard_providers.dart';
 import 'package:ohs_shield_tracker/shared/domain/risk_band.dart';
+import 'package:ohs_shield_tracker/shared/widgets/app_shell.dart';
 
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
@@ -24,6 +25,12 @@ class DashboardScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(currentUserProvider).valueOrNull;
     final async = ref.watch(dashboardDataProvider);
+
+    // Re-aggregate when the Dashboard tab (branch 0) regains focus, so counts
+    // reflect hazards/CAPAs changed on other tabs without a manual pull-to-refresh.
+    ref.listen(activeShellBranchProvider, (prev, next) {
+      if (next == 0 && prev != next) ref.invalidate(dashboardDataProvider);
+    });
 
     return Scaffold(
       body: RefreshIndicator(

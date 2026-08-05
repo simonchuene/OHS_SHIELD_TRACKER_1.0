@@ -12,6 +12,7 @@ import 'package:ohs_shield_tracker/features/hazards/domain/entities/hazard_filte
 import 'package:ohs_shield_tracker/features/hazards/domain/entities/hazard_status.dart';
 import 'package:ohs_shield_tracker/features/hazards/domain/repositories/hazard_repository.dart';
 import 'package:ohs_shield_tracker/repositories/base_repository.dart';
+import 'package:ohs_shield_tracker/shared/domain/risk_band.dart';
 import 'package:ohs_shield_tracker/services/sync/offline_mutation_service.dart';
 import 'package:ohs_shield_tracker/services/sync/sync_models.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -37,7 +38,12 @@ final class HazardRepositoryImpl extends BaseRepository implements HazardReposit
       try {
         var q = _client.from('hazards').select();
         if (filter.status != null) q = q.eq('status', filter.status!.dbValue);
-        if (filter.riskLevel != null) q = q.eq('risk_level', filter.riskLevel!.dbValue);
+        if (filter.riskLevel != null) {
+          // A risk filter means "this band or more severe" so the dashboard's
+          // "High Risk" KPI (which counts high AND critical) matches the list it
+          // opens — an exact-band match would hide Critical hazards.
+          q = q.inFilter('risk_level', _bandsAtLeast(filter.riskLevel!));
+        }
         if (filter.siteId != null) q = q.eq('site_id', filter.siteId!);
         if (filter.mineOnly && currentUserId != null) q = q.eq('reporter_id', currentUserId);
         // Bound the request so a slow/dead network fails fast into the cache
@@ -76,7 +82,10 @@ final class HazardRepositoryImpl extends BaseRepository implements HazardReposit
       var list = byId.values.toList()..sort((a, b) => b.reportedAt.compareTo(a.reportedAt));
       // Re-apply filters to cover cached items the server query didn't see.
       if (filter.status != null) list = list.where((h) => h.status == filter.status).toList();
-      if (filter.riskLevel != null) list = list.where((h) => h.riskLevel == filter.riskLevel).toList();
+      if (filter.riskLevel != null) {
+        final floor = filter.riskLevel!.index;
+        list = list.where((h) => (h.riskLevel?.index ?? -1) >= floor).toList();
+      }
       if (filter.mineOnly && currentUserId != null) {
         list = list.where((h) => h.reporterId == currentUserId).toList();
       }
@@ -91,6 +100,10 @@ final class HazardRepositoryImpl extends BaseRepository implements HazardReposit
       return list;
     }, context: 'listHazards',);
   }
+
+  /// The db values for [floor] and every more-severe band (low<medium<high<critical).
+  List<String> _bandsAtLeast(RiskBand floor) =>
+      RiskBand.values.where((b) => b.index >= floor.index).map((b) => b.dbValue).toList();
 
   @override
   Future<Result<Hazard>> getHazard(String id) {
