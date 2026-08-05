@@ -9,6 +9,7 @@ import 'package:ohs_shield_tracker/features/capa/domain/entities/capa_enums.dart
 import 'package:ohs_shield_tracker/features/capa/domain/entities/corrective_action.dart';
 import 'package:ohs_shield_tracker/features/capa/presentation/providers/capa_providers.dart';
 import 'package:ohs_shield_tracker/features/capa/presentation/widgets/capa_ui.dart';
+import 'package:ohs_shield_tracker/shared/widgets/skeleton.dart';
 
 /// Actions tab — CAPA board with Kanban / List toggle.
 class CapaBoardScreen extends ConsumerStatefulWidget {
@@ -38,7 +39,7 @@ class _CapaBoardScreenState extends ConsumerState<CapaBoardScreen> {
         ],
       ),
       body: capas.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const SkeletonList(),
         error: (e, _) => Center(child: Text('Could not load actions: $e')),
         data: (list) => list.isEmpty
             ? const Center(child: Padding(padding: EdgeInsets.all(32), child: Text('Nothing to action right now.')))

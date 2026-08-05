@@ -22,6 +22,7 @@ import 'package:ohs_shield_tracker/features/hazards/presentation/widgets/hazard_
 import 'package:ohs_shield_tracker/features/investigations/presentation/providers/investigation_providers.dart';
 import 'package:ohs_shield_tracker/services/sync/sync_models.dart';
 import 'package:ohs_shield_tracker/services/sync/sync_providers.dart';
+import 'package:ohs_shield_tracker/shared/widgets/skeleton.dart';
 import 'package:ohs_shield_tracker/shared/widgets/sync_status_badge.dart';
 
 class HazardDetailScreen extends ConsumerWidget {
@@ -34,7 +35,7 @@ class HazardDetailScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('Hazard')),
       body: async.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const SkeletonDetail(),
         error: (e, _) => Center(child: Text('Could not load hazard: $e')),
         data: (h) => RefreshIndicator(
           onRefresh: () async {

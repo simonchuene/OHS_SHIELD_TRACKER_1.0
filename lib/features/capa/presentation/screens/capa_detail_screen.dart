@@ -13,6 +13,7 @@ import 'package:ohs_shield_tracker/features/capa/domain/entities/capa_enums.dart
 import 'package:ohs_shield_tracker/features/capa/domain/entities/corrective_action.dart';
 import 'package:ohs_shield_tracker/features/capa/presentation/providers/capa_providers.dart';
 import 'package:ohs_shield_tracker/features/capa/presentation/widgets/capa_ui.dart';
+import 'package:ohs_shield_tracker/shared/widgets/skeleton.dart';
 
 class CapaDetailScreen extends ConsumerWidget {
   const CapaDetailScreen({required this.capaId, super.key});
@@ -24,7 +25,7 @@ class CapaDetailScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('Corrective action')),
       body: async.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const SkeletonDetail(),
         error: (e, _) => Center(child: Text('Could not load: $e')),
         data: (capa) => _Body(capa: capa),
       ),

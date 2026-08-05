@@ -12,6 +12,7 @@ import 'package:ohs_shield_tracker/features/hazards/presentation/widgets/hazard_
 import 'package:ohs_shield_tracker/services/sync/sync_models.dart';
 import 'package:ohs_shield_tracker/services/sync/sync_providers.dart';
 import 'package:ohs_shield_tracker/shared/widgets/app_shell.dart';
+import 'package:ohs_shield_tracker/shared/widgets/skeleton.dart';
 import 'package:ohs_shield_tracker/shared/widgets/duotone_icon_badge.dart';
 import 'package:ohs_shield_tracker/shared/widgets/sync_status_badge.dart';
 
@@ -66,7 +67,7 @@ class HazardListScreen extends ConsumerWidget {
           ),
           Expanded(
             child: hazards.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
+              loading: () => const SkeletonList(),
               error: (e, _) => Center(child: Text('Could not load hazards: $e')),
               data: (list) => RefreshIndicator(
                 onRefresh: () async => ref.invalidate(hazardListProvider),
