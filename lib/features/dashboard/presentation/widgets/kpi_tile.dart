@@ -26,7 +26,12 @@ class KpiTile extends StatelessWidget {
             DuotoneIconBadge(icon: icon, color: color, size: 28),
             const SizedBox(height: 6),
             Text('$value', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800, fontFeatures: [FontFeature.tabularFigures()])),
-            Text(label, style: Theme.of(context).textTheme.labelSmall, maxLines: 1, overflow: TextOverflow.ellipsis),
+            // Reserve two lines so labels wrap ("Open Hazards") instead of
+            // truncating ("Open Haz…"), and every tile stays the same height.
+            SizedBox(
+              height: 30,
+              child: Text(label, style: Theme.of(context).textTheme.labelSmall, maxLines: 2, overflow: TextOverflow.ellipsis),
+            ),
             const SizedBox(height: 5),
             Container(width: 20, height: 3, decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(2))),
           ],),

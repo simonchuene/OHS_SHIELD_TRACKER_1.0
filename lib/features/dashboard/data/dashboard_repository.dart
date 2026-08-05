@@ -94,13 +94,17 @@ class DashboardRepository {
         inspectionCompletionRate: inspectionCompletionRate,
       );
 
+      final safetyScore = SafetyScore.compute(highRiskHazards: highRisk, overdueCapas: overdueCapas, seriousIncidents30d: seriousIncidents30d);
+      final scoreDelta = await _recordScoreAndDelta(userId, safetyScore, now);
+
       final data = DashboardData(
         scopeLabel: DashboardScope.labelFor(role),
-        safetyScore: SafetyScore.compute(highRiskHazards: highRisk, overdueCapas: overdueCapas, seriousIncidents30d: seriousIncidents30d),
+        safetyScore: safetyScore,
         kpi: kpi,
         incidentTrend: trend,
         deptRanking: DashboardScope.showsDeptRanking(role) ? ranking.take(5).toList() : const [],
         generatedAt: now,
+        scoreDelta: scoreDelta,
       );
 
       await _db.upsertCache(CachedRecordsCompanion(
@@ -117,6 +121,57 @@ class DashboardRepository {
         } catch (_) {}
       }
       return const Err(NetworkFailure());
+    }
+  }
+
+  static const _scoreHistoryEntity = 'score_history';
+
+  /// Persists today's safety score in a local per-user daily history and returns
+  /// the change vs the snapshot closest to 7 days ago (null until ~a week of
+  /// history exists). Honest observed change — no server-side backfill.
+  Future<int?> _recordScoreAndDelta(String userId, int score, DateTime now) async {
+    try {
+      final today = DateTime(now.year, now.month, now.day);
+      final key = today.toIso8601String().substring(0, 10);
+
+      final history = <String, int>{};
+      final existing = (await _db.cachedByType(_scoreHistoryEntity)).where((r) => r.entityId == userId);
+      if (existing.isNotEmpty) {
+        (jsonDecode(existing.first.data) as Map<String, dynamic>)
+            .forEach((k, v) => history[k] = (v as num).toInt());
+      }
+
+      // Pick the baseline nearest 7 days ago (within a 3–10 day window) BEFORE
+      // recording today, so a same-day reload doesn't compare against itself.
+      int? baseline;
+      var bestDistance = 1 << 30;
+      history.forEach((k, v) {
+        final d = DateTime.tryParse(k);
+        if (d == null) return;
+        final daysAgo = today.difference(d).inDays;
+        if (daysAgo >= 3 && daysAgo <= 10) {
+          final distance = (daysAgo - 7).abs();
+          if (distance < bestDistance) {
+            bestDistance = distance;
+            baseline = v;
+          }
+        }
+      });
+
+      history[key] = score;
+      final cutoff = today.subtract(const Duration(days: 21));
+      history.removeWhere((k, _) {
+        final d = DateTime.tryParse(k);
+        return d == null || d.isBefore(cutoff);
+      });
+      await _db.upsertCache(CachedRecordsCompanion(
+        entityType: const Value(_scoreHistoryEntity), entityId: Value(userId),
+        data: Value(jsonEncode(history)), syncStatus: const Value('synced'), updatedAt: Value(now),
+      ),);
+
+      return baseline == null ? null : score - baseline!;
+    } catch (_) {
+      return null; // score history is best-effort; never fail the dashboard load
     }
   }
 }

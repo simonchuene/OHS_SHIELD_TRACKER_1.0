@@ -69,6 +69,7 @@ class DashboardData {
     this.incidentTrend = const [],
     this.deptRanking = const [],
     required this.generatedAt,
+    this.scoreDelta,
     this.fromCache = false,
   });
 
@@ -78,12 +79,16 @@ class DashboardData {
   final List<TrendPoint> incidentTrend;
   final List<DeptRisk> deptRanking;
   final DateTime generatedAt;
+
+  /// Change in [safetyScore] vs ~7 days ago (from a local daily snapshot); null
+  /// until there is at least a week of history to compare against.
+  final int? scoreDelta;
   final bool fromCache;
 
   DashboardData copyWith({bool? fromCache}) => DashboardData(
         scopeLabel: scopeLabel, safetyScore: safetyScore, kpi: kpi,
         incidentTrend: incidentTrend, deptRanking: deptRanking,
-        generatedAt: generatedAt, fromCache: fromCache ?? this.fromCache,
+        generatedAt: generatedAt, scoreDelta: scoreDelta, fromCache: fromCache ?? this.fromCache,
       );
 
   Map<String, dynamic> toJson() => {
@@ -91,6 +96,7 @@ class DashboardData {
         'incidentTrend': [for (final t in incidentTrend) t.toJson()],
         'deptRanking': [for (final d in deptRanking) d.toJson()],
         'generatedAt': generatedAt.toIso8601String(),
+        if (scoreDelta != null) 'scoreDelta': scoreDelta,
       };
   factory DashboardData.fromJson(Map<String, dynamic> j) => DashboardData(
         scopeLabel: j['scopeLabel'] as String,
@@ -99,6 +105,7 @@ class DashboardData {
         incidentTrend: [for (final t in (j['incidentTrend'] as List? ?? [])) TrendPoint.fromJson(Map<String, dynamic>.from(t as Map))],
         deptRanking: [for (final d in (j['deptRanking'] as List? ?? [])) DeptRisk.fromJson(Map<String, dynamic>.from(d as Map))],
         generatedAt: DateTime.parse(j['generatedAt'] as String),
+        scoreDelta: (j['scoreDelta'] as num?)?.toInt(),
         fromCache: true,
       );
 }
