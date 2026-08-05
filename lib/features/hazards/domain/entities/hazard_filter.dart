@@ -14,6 +14,11 @@ class HazardFilter {
   final String? query;
   final bool mineOnly;
 
+  /// True when any narrowing is applied — used to tell an empty result caused by
+  /// a filter apart from there genuinely being no hazards.
+  bool get isActive =>
+      status != null || riskLevel != null || mineOnly || (query?.trim().isNotEmpty ?? false);
+
   HazardFilter copyWith({
     HazardStatus? status,
     RiskBand? riskLevel,

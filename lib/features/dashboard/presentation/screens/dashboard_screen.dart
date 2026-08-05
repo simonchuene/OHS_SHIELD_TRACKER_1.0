@@ -72,7 +72,7 @@ class _Content extends ConsumerWidget {
       const SizedBox(height: 16),
       Row(children: [
         KpiTile(icon: Icons.warning_amber_rounded, color: AppColors.warningAmber, value: k.openHazards, label: 'Open Hazards',
-            onTap: () => context.go(Routes.hazards),),
+            onTap: () { ref.read(hazardFilterControllerProvider.notifier).update(const HazardFilter()); context.go(Routes.hazards); },),
         KpiTile(icon: Icons.local_fire_department_outlined, color: AppColors.criticalRed, value: k.highRiskHazards, label: 'High Risk',
             onTap: () { ref.read(hazardFilterControllerProvider.notifier).update(const HazardFilter(riskLevel: RiskBand.high)); context.go(Routes.hazards); },),
         KpiTile(icon: Icons.checklist_rtl_rounded, color: AppColors.infoBlue, value: k.openCapas, label: 'Open CAPAs',

@@ -40,7 +40,11 @@ final class HazardRepositoryImpl extends BaseRepository implements HazardReposit
         if (filter.riskLevel != null) q = q.eq('risk_level', filter.riskLevel!.dbValue);
         if (filter.siteId != null) q = q.eq('site_id', filter.siteId!);
         if (filter.mineOnly && currentUserId != null) q = q.eq('reporter_id', currentUserId);
-        final rows = await q.order('reported_at', ascending: false);
+        // Bound the request so a slow/dead network fails fast into the cache
+        // fallback below, instead of hanging and leaving the list stuck.
+        final rows = await q
+            .order('reported_at', ascending: false)
+            .timeout(const Duration(seconds: 8));
         for (final r in rows) {
           final h = HazardDto.fromJson(r).toEntity();
           byId[h.id] = h;
@@ -64,7 +68,9 @@ final class HazardRepositoryImpl extends BaseRepository implements HazardReposit
         if (c.syncStatus == SyncStatus.synced.name && byId.containsKey(c.entityId)) continue;
         try {
           byId[c.entityId] = HazardDto.fromJson(jsonDecode(c.data) as Map<String, dynamic>).toEntity();
-        } catch (_) {/* skip malformed cache */}
+        } catch (_) {
+          // Skip malformed cache rows.
+        }
       }
 
       var list = byId.values.toList()..sort((a, b) => b.reportedAt.compareTo(a.reportedAt));

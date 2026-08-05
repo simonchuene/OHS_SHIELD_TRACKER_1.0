@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:ohs_shield_tracker/core/router/routes.dart';
 import 'package:ohs_shield_tracker/core/theme/app_colors.dart';
 import 'package:ohs_shield_tracker/features/hazards/domain/entities/hazard.dart';
+import 'package:ohs_shield_tracker/features/hazards/domain/entities/hazard_filter.dart';
 import 'package:ohs_shield_tracker/features/hazards/domain/entities/hazard_status.dart';
 import 'package:ohs_shield_tracker/features/hazards/presentation/providers/hazard_providers.dart';
 import 'package:ohs_shield_tracker/features/hazards/presentation/widgets/hazard_ui.dart';
@@ -50,8 +51,8 @@ class HazardListScreen extends ConsumerWidget {
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             child: Row(children: [
-              ChoiceChip(label: const Text('All'), selected: filter.status == null && !filter.mineOnly,
-                  onSelected: (_) => ctrl.update(filter.copyWith(clearStatus: true, mineOnly: false)),),
+              ChoiceChip(label: const Text('All'), selected: filter.status == null && filter.riskLevel == null && !filter.mineOnly,
+                  onSelected: (_) => ctrl.update(filter.copyWith(clearStatus: true, clearRisk: true, mineOnly: false)),),
               const SizedBox(width: 8),
               ChoiceChip(label: const Text('Mine'), selected: filter.mineOnly,
                   onSelected: (v) => ctrl.update(filter.copyWith(mineOnly: v)),),
@@ -77,7 +78,13 @@ class HazardListScreen extends ConsumerWidget {
                           physics: const AlwaysScrollableScrollPhysics(),
                           child: ConstrainedBox(
                             constraints: BoxConstraints(minHeight: constraints.maxHeight),
-                            child: const _EmptyHazards(),
+                            // Distinguish "genuinely no hazards" from "a filter
+                            // (e.g. High Risk, arrived via a dashboard KPI) hid
+                            // them all" — the latter must offer a way out, since
+                            // the risk filter has no chip on this screen.
+                            child: filter.isActive
+                                ? _NoHazardMatches(onClear: () => ctrl.update(const HazardFilter()))
+                                : const _EmptyHazards(),
                           ),
                         ),
                       )
@@ -134,6 +141,33 @@ class _EmptyHazards extends StatelessWidget {
             Text('No open hazards on this site — nice work.',
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppColors.secondaryText),),
+          ],),
+        ),
+      );
+}
+
+/// Shown when a filter (status/risk/mine/search) matches nothing — as opposed to
+/// there being no hazards at all. Offers a one-tap reset because the risk filter
+/// (set from the dashboard's High Risk KPI) has no chip to clear it here.
+class _NoHazardMatches extends StatelessWidget {
+  const _NoHazardMatches({required this.onClear});
+  final VoidCallback onClear;
+  @override
+  Widget build(BuildContext context) => Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            const Icon(Icons.filter_alt_off_outlined, size: 48, color: AppColors.secondaryText),
+            const SizedBox(height: 12),
+            Text('No hazards match the current filter.',
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppColors.secondaryText),),
+            const SizedBox(height: 16),
+            OutlinedButton.icon(
+              onPressed: onClear,
+              icon: const Icon(Icons.close_rounded),
+              label: const Text('Clear filters'),
+            ),
           ],),
         ),
       );
