@@ -19,7 +19,12 @@ DashboardRepository dashboardRepository(DashboardRepositoryRef ref) => Dashboard
 /// (no cache); returns a cached (offline) snapshot when the server is unreachable.
 @riverpod
 Future<DashboardData> dashboardData(DashboardDataRef ref) async {
-  final user = ref.watch(currentUserProvider).valueOrNull;
+  // Await the user rather than reading valueOrNull: while the profile is still
+  // loading, valueOrNull is null too, which flashed a spurious "Not signed in"
+  // error on the home dashboard before the user resolved. Awaiting keeps the
+  // dashboard on its loading state until the user is actually known; the error
+  // only surfaces if genuinely signed out (router then redirects to login).
+  final user = await ref.watch(currentUserProvider.future);
   if (user == null) throw StateError('Not signed in');
   final res = await ref.watch(dashboardRepositoryProvider).load(role: user.primaryRole, userId: user.id);
   return res.when(ok: (d) => d, err: (f) => throw f);
