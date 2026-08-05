@@ -10,6 +10,7 @@ class CapaUseCases {
   final CapaRepository _repo;
 
   Future<Result<List<CorrectiveAction>>> list(CapaFilter f, {String? uid}) => _repo.list(f, currentUserId: uid);
+  Future<Result<List<CorrectiveAction>>> listForHazard(String hazardId) => _repo.listForHazard(hazardId);
   Future<Result<CorrectiveAction>> get(String id) => _repo.get(id);
 
   Future<Result<CorrectiveAction>> create({

@@ -51,6 +51,13 @@ Future<CorrectiveAction> capaDetail(CapaDetailRef ref, String id) async {
   return res.when(ok: (c) => c, err: (f) => throw f);
 }
 
+/// CAPAs linked to a hazard — drives the hazard detail's corrective-actions list.
+@riverpod
+Future<List<CorrectiveAction>> capasForHazard(CapasForHazardRef ref, String hazardId) async {
+  final res = await ref.watch(capaUseCasesProvider).listForHazard(hazardId);
+  return res.when(ok: (c) => c, err: (f) => throw f);
+}
+
 /// Company users for the owner picker (RLS: user_profiles readable within company).
 @riverpod
 Future<List<NamedUser>> companyUsers(CompanyUsersRef ref) async {

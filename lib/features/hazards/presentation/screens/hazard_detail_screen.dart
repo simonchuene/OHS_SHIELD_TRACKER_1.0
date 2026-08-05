@@ -37,7 +37,10 @@ class HazardDetailScreen extends ConsumerWidget {
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('Could not load hazard: $e')),
         data: (h) => RefreshIndicator(
-          onRefresh: () async => ref.invalidate(hazardDetailProvider(hazardId)),
+          onRefresh: () async {
+            ref.invalidate(hazardDetailProvider(hazardId));
+            ref.invalidate(capasForHazardProvider(hazardId));
+          },
           child: ListView(padding: const EdgeInsets.all(16), children: [
             Row(children: [
               Expanded(child: Text(h.title, style: Theme.of(context).textTheme.headlineMedium)),
@@ -68,6 +71,8 @@ class HazardDetailScreen extends ConsumerWidget {
             _RiskSection(hazard: h),
             const SizedBox(height: 16),
             _WorkflowActions(hazard: h),
+            const SizedBox(height: 16),
+            _CorrectiveActions(hazard: h),
             const SizedBox(height: 16),
             _LinkagePlaceholder(hazard: h),
           ],),
@@ -220,48 +225,46 @@ class _RiskSection extends ConsumerWidget {
   }
 }
 
-class _LinkagePlaceholder extends ConsumerWidget {
-  const _LinkagePlaceholder({required this.hazard});
+class _CorrectiveActions extends ConsumerWidget {
+  const _CorrectiveActions({required this.hazard});
   final Hazard hazard;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final investigations = ref.watch(investigationsForHazardProvider(hazard.id));
+    final capas = ref.watch(capasForHazardProvider(hazard.id));
     final rank = ref.watch(authRoleRankProvider) ?? 0;
     return _Section(
-      title: 'Investigations',
+      title: 'Corrective actions',
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        investigations.when(
+        capas.when(
           loading: () => const Text('…'),
-          error: (_, __) => const Text('Could not load investigations'),
+          error: (_, __) => const Text('Could not load corrective actions'),
           data: (list) => list.isEmpty
-              ? Text('None yet', style: Theme.of(context).textTheme.labelSmall?.copyWith(color: AppColors.secondaryText))
+              ? Text('None linked', style: Theme.of(context).textTheme.labelSmall?.copyWith(color: AppColors.secondaryText))
               : Column(children: [
-                  for (final inv in list)
+                  for (final c in list)
                     ListTile(
                       dense: true,
                       contentPadding: EdgeInsets.zero,
-                      leading: const Icon(Icons.search_rounded),
-                      title: Text(inv.method?.label ?? 'Investigation'),
-                      subtitle: Text(inv.status.label),
-                      onTap: () => context.push('${Routes.investigations}/${inv.id}'),
+                      leading: Icon(
+                        c.isClosed ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded,
+                        color: c.isClosed ? AppColors.primaryGreen : AppColors.secondaryText,
+                        size: 20,
+                      ),
+                      title: Text(c.description, maxLines: 1, overflow: TextOverflow.ellipsis),
+                      subtitle: Text(c.status.label),
+                      trailing: const Icon(Icons.chevron_right_rounded, color: AppColors.secondaryText),
+                      onTap: () => context.push(Routes.capaDetail(c.id)),
                     ),
                 ],),
         ),
         if (rank >= 2) ...[
           const SizedBox(height: 8),
-          Wrap(spacing: 8, runSpacing: 8, children: [
-            OutlinedButton.icon(
-              onPressed: () => _start(context, ref),
-              icon: const Icon(Icons.search_rounded, size: 18),
-              label: const Text('Start investigation'),
-            ),
-            OutlinedButton.icon(
-              onPressed: () => _addCapa(context, ref),
-              icon: const Icon(Icons.add_task_rounded, size: 18),
-              label: const Text('Add CAPA'),
-            ),
-          ],),
+          OutlinedButton.icon(
+            onPressed: () => _addCapa(context, ref),
+            icon: const Icon(Icons.add_task_rounded, size: 18),
+            label: const Text('Add CAPA'),
+          ),
         ],
       ],),
     );
@@ -296,11 +299,54 @@ class _LinkagePlaceholder extends ConsumerWidget {
         );
     if (!context.mounted) return;
     if (capa != null) {
-      unawaited(context.push('${Routes.capa}/${capa.id}'));
+      // Refresh the linked list so the new action appears when we return.
+      ref.invalidate(capasForHazardProvider(hazard.id));
+      unawaited(context.push(Routes.capaDetail(capa.id)));
     } else {
       final f = ref.read(capaControllerProvider).error;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(f is Failure ? f.message : 'Could not create CAPA')));
     }
+  }
+}
+
+class _LinkagePlaceholder extends ConsumerWidget {
+  const _LinkagePlaceholder({required this.hazard});
+  final Hazard hazard;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final investigations = ref.watch(investigationsForHazardProvider(hazard.id));
+    final rank = ref.watch(authRoleRankProvider) ?? 0;
+    return _Section(
+      title: 'Investigations',
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        investigations.when(
+          loading: () => const Text('…'),
+          error: (_, __) => const Text('Could not load investigations'),
+          data: (list) => list.isEmpty
+              ? Text('None yet', style: Theme.of(context).textTheme.labelSmall?.copyWith(color: AppColors.secondaryText))
+              : Column(children: [
+                  for (final inv in list)
+                    ListTile(
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(Icons.search_rounded),
+                      title: Text(inv.method?.label ?? 'Investigation'),
+                      subtitle: Text(inv.status.label),
+                      onTap: () => context.push('${Routes.investigations}/${inv.id}'),
+                    ),
+                ],),
+        ),
+        if (rank >= 2) ...[
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            onPressed: () => _start(context, ref),
+            icon: const Icon(Icons.search_rounded, size: 18),
+            label: const Text('Start investigation'),
+          ),
+        ],
+      ],),
+    );
   }
 
   Future<void> _start(BuildContext context, WidgetRef ref) async {

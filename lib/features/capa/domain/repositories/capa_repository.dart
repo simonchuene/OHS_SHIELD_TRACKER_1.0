@@ -33,6 +33,10 @@ class CapaSourceRef {
 
 abstract interface class CapaRepository {
   Future<Result<List<CorrectiveAction>>> list(CapaFilter filter, {String? currentUserId});
+
+  /// CAPAs linked to a given source hazard (open ones first).
+  Future<Result<List<CorrectiveAction>>> listForHazard(String hazardId);
+
   Future<Result<CorrectiveAction>> get(String id);
 
   Future<Result<CorrectiveAction>> create({

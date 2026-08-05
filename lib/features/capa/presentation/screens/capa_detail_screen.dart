@@ -1,8 +1,10 @@
 // path: lib/features/capa/presentation/screens/capa_detail_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:ohs_shield_tracker/core/error/failure.dart';
+import 'package:ohs_shield_tracker/core/router/routes.dart';
 import 'package:ohs_shield_tracker/core/theme/app_colors.dart';
 import 'package:ohs_shield_tracker/features/attachments/domain/entities/attachment_owner_type.dart';
 import 'package:ohs_shield_tracker/features/attachments/presentation/widgets/attachment_field.dart';
@@ -46,6 +48,20 @@ class _Body extends ConsumerWidget {
       ],),
       const SizedBox(height: 4),
       Text('${capaSourceLabel(capa.source)} · ${capa.status.label}', style: Theme.of(context).textTheme.labelSmall),
+      if (_sourceRoute() != null)
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton.icon(
+            style: TextButton.styleFrom(
+              padding: EdgeInsets.zero,
+              minimumSize: const Size(0, 32),
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+            onPressed: () => context.push(_sourceRoute()!),
+            icon: const Icon(Icons.open_in_new_rounded, size: 16),
+            label: Text('Open ${_sourceNoun()}'),
+          ),
+        ),
       if (capa.isOverdue)
         const Padding(padding: EdgeInsets.only(top: 4), child: Text('Overdue', style: TextStyle(color: AppColors.criticalRed, fontWeight: FontWeight.w700))),
       const SizedBox(height: 16),
@@ -82,6 +98,22 @@ class _Body extends ConsumerWidget {
         ),
     ],);
   }
+
+  /// Route to the CAPA's originating record, or null when it can't be opened
+  /// (e.g. an inspection-item source, which has no standalone detail page).
+  String? _sourceRoute() {
+    if (capa.hazardId != null) return Routes.hazardDetail(capa.hazardId!);
+    if (capa.incidentId != null) return Routes.incidentDetail(capa.incidentId!);
+    if (capa.investigationId != null) return Routes.investigationDetail(capa.investigationId!);
+    return null;
+  }
+
+  String _sourceNoun() => switch (capa.source) {
+        CapaSource.hazard => 'hazard',
+        CapaSource.incident => 'incident',
+        CapaSource.investigation => 'investigation',
+        _ => 'source',
+      };
 
   Future<void> _assignOwner(BuildContext context, WidgetRef ref) async {
     final users = await ref.read(companyUsersProvider.future);

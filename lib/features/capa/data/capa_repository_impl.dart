@@ -60,6 +60,40 @@ final class CapaRepositoryImpl extends BaseRepository implements CapaRepository 
   }
 
   @override
+  Future<Result<List<CorrectiveAction>>> listForHazard(String hazardId) {
+    return run(() async {
+      final byId = <String, CorrectiveAction>{};
+      try {
+        final rows = await _client
+            .from('corrective_actions')
+            .select()
+            .eq('hazard_id', hazardId)
+            .order('created_at', ascending: false);
+        for (final r in rows) {
+          final c = CapaDto.fromJson(r).toEntity();
+          byId[c.id] = c;
+        }
+      } catch (e, s) {
+        logger.warn('capa listForHazard: server unavailable, using cache', e, s);
+      }
+      // Merge locally-cached CAPAs for this hazard (offline-created/pending).
+      for (final c in await _db.cachedByType(_entity)) {
+        try {
+          final capa = CapaDto.fromJson(jsonDecode(c.data) as Map<String, dynamic>).toEntity();
+          if (capa.hazardId == hazardId) byId[capa.id] = capa;
+        } catch (_) {}
+      }
+      // Open actions first (they gate hazard closure), then by description.
+      final list = byId.values.toList()
+        ..sort((a, b) {
+          if (a.isClosed != b.isClosed) return a.isClosed ? 1 : -1;
+          return a.description.toLowerCase().compareTo(b.description.toLowerCase());
+        });
+      return list;
+    }, context: 'listCapaForHazard',);
+  }
+
+  @override
   Future<Result<CorrectiveAction>> get(String id) {
     return run(() async {
       final match = (await _db.cachedByType(_entity)).where((c) => c.entityId == id);
