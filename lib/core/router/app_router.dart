@@ -22,6 +22,7 @@ import 'package:ohs_shield_tracker/features/incidents/presentation/screens/incid
 import 'package:ohs_shield_tracker/features/incidents/presentation/screens/incident_report_screen.dart';
 import 'package:ohs_shield_tracker/features/investigations/presentation/screens/investigation_detail_screen.dart';
 import 'package:ohs_shield_tracker/features/investigations/presentation/screens/investigation_list_screen.dart';
+import 'package:ohs_shield_tracker/features/more/presentation/screens/more_screen.dart';
 import 'package:ohs_shield_tracker/features/inspections/presentation/screens/inspection_list_screen.dart';
 import 'package:ohs_shield_tracker/features/inspections/presentation/screens/inspection_new_screen.dart';
 import 'package:ohs_shield_tracker/features/inspections/presentation/screens/inspection_run_screen.dart';
@@ -123,7 +124,7 @@ final goRouterProvider = Provider<GoRouter>((ref) {
           StatefulShellBranch(navigatorKey: shellKeys[3], routes: [
             GoRoute(
               path: Routes.more,
-              builder: (_, __) => const PlaceholderScreen(title: 'More'),
+              builder: (_, __) => const MoreScreen(),
               routes: [
                 GoRoute(path: 'profile', builder: (_, __) => const PlaceholderScreen(title: 'Profile')),
               ],
