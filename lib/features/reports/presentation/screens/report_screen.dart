@@ -32,6 +32,16 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
       ..showSnackBar(SnackBar(content: Text(path == null ? 'Export failed' : 'Saved ${format.name.toUpperCase()} · $path')));
   }
 
+  /// Exports (saving locally + recording history, exactly as Download does) and
+  /// then opens the share sheet so the file can be emailed.
+  Future<void> _email(ReportFormat format) async {
+    final path = await ref.read(reportControllerProvider.notifier).emailReport(format);
+    if (!mounted || path != null) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(const SnackBar(content: Text('Could not prepare the report to send')));
+  }
+
   @override
   Widget build(BuildContext context) {
     final result = ref.watch(reportControllerProvider);
@@ -62,7 +72,7 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
         result.when(
           loading: () => const Center(child: Padding(padding: EdgeInsets.all(16), child: CircularProgressIndicator())),
           error: (e, _) => Text(e is Failure ? e.message : '$e', style: const TextStyle(color: AppColors.criticalRed)),
-          data: (r) => r == null ? const SizedBox.shrink() : _Preview(result: r, onExport: _export),
+          data: (r) => r == null ? const SizedBox.shrink() : _Preview(result: r, onExport: _export, onEmail: _email),
         ),
         const SizedBox(height: 24),
         Text('Report history', style: Theme.of(context).textTheme.titleLarge),
@@ -89,9 +99,10 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
 }
 
 class _Preview extends StatelessWidget {
-  const _Preview({required this.result, required this.onExport});
+  const _Preview({required this.result, required this.onExport, required this.onEmail});
   final ReportResult result;
   final void Function(ReportFormat) onExport;
+  final void Function(ReportFormat) onEmail;
 
   @override
   Widget build(BuildContext context) {
@@ -100,10 +111,13 @@ class _Preview extends StatelessWidget {
         Expanded(child: Text('${result.title} · ${result.rowCount} row(s)', style: Theme.of(context).textTheme.titleLarge)),
       ],),
       const SizedBox(height: 8),
-      Row(children: [
-        OutlinedButton.icon(onPressed: () => onExport(ReportFormat.csv), icon: const Icon(Icons.grid_on_outlined, size: 18), label: const Text('CSV')),
-        const SizedBox(width: 8),
-        OutlinedButton.icon(onPressed: () => onExport(ReportFormat.pdf), icon: const Icon(Icons.picture_as_pdf_outlined, size: 18), label: const Text('PDF')),
+      // Download saves to the device; Email exports the same file and opens the
+      // share sheet, so the local copy + history entry are kept either way.
+      Wrap(spacing: 8, runSpacing: 8, children: [
+        OutlinedButton.icon(onPressed: () => onExport(ReportFormat.csv), icon: const Icon(Icons.grid_on_outlined, size: 18), label: const Text('Download CSV')),
+        OutlinedButton.icon(onPressed: () => onExport(ReportFormat.pdf), icon: const Icon(Icons.picture_as_pdf_outlined, size: 18), label: const Text('Download PDF')),
+        FilledButton.tonalIcon(onPressed: () => onEmail(ReportFormat.csv), icon: const Icon(Icons.mail_outline_rounded, size: 18), label: const Text('Email CSV')),
+        FilledButton.tonalIcon(onPressed: () => onEmail(ReportFormat.pdf), icon: const Icon(Icons.mail_outline_rounded, size: 18), label: const Text('Email PDF')),
       ],),
       const SizedBox(height: 8),
       SingleChildScrollView(

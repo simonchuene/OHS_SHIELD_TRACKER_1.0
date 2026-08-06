@@ -52,6 +52,7 @@ dependencies:
 
   # Reporting (Prompt 14) — PDF export
   pdf: ^3.11.1
+  share_plus: ^12.0.2
 
 # Pin path_provider_android to the pre-2.3 line: 2.3.x adds a `jni` dependency
 # whose archive can't be fetched in this sandbox (TLS revocation-check limit).

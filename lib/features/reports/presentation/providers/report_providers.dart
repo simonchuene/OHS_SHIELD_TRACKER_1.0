@@ -4,6 +4,7 @@ import 'dart:async';
 import 'package:ohs_shield_tracker/core/providers/core_providers.dart';
 import 'package:ohs_shield_tracker/features/reports/data/report_exporter.dart';
 import 'package:ohs_shield_tracker/features/reports/data/report_repository.dart';
+import 'package:ohs_shield_tracker/features/reports/data/report_sharer.dart';
 import 'package:ohs_shield_tracker/features/reports/domain/report_models.dart';
 import 'package:ohs_shield_tracker/services/sync/sync_providers.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -32,6 +33,23 @@ class ReportController extends _$ReportController {
     state = const AsyncLoading();
     final res = await ref.read(reportRepositoryProvider).generate(type, filters);
     state = res.when(ok: (r) => AsyncData(r), err: (f) => AsyncError(f, StackTrace.current));
+  }
+
+  /// Exports the current result and hands the file to the OS share sheet (email
+  /// et al). The local copy and history entry are produced exactly as for a
+  /// plain download — sharing is layered on top, never instead of it.
+  /// Returns null if there's nothing to export or the export failed.
+  Future<String?> emailReport(ReportFormat format) async {
+    final result = state.valueOrNull;
+    final path = await export(format);
+    if (path == null || result == null) return null;
+    await const ReportSharer().shareFile(
+      filePath: path,
+      title: result.title,
+      summary: '${result.title} · ${result.rowCount} row(s) · '
+          'generated ${result.generatedAt.toLocal()}',
+    );
+    return path;
   }
 
   /// Exports the current result; returns the saved file path (or null on failure).
