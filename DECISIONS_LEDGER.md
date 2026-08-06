@@ -153,6 +153,14 @@ Continued on-device testing (Android emulator, live backend) fixed further defec
 **Build:**
 - `compileSdk` pinned to **36** (app `build.gradle.kts` + every Android library subproject via an `afterEvaluate` hook in the root `build.gradle.kts`) — a transitive plugin (`flutter_plugin_android_lifecycle`, via file_picker/image_picker) now requires apps/libraries to compile against API 36.
 
+**Branding — launcher icon & splash (2026-08-06):**
+- **Launcher/adaptive icon** generated from the branding tile via `flutter_launcher_icons` (legacy mipmaps + `mipmap-anydpi-v26` adaptive, background `#FBF9F1`), replacing the default Flutter icon. This also rebrands the **Android 12 splash**, which renders the launcher icon.
+- **Native launch background = brand green** (`launch_background` drawables + `windowSplashScreenBackground`, light + night) so cold start no longer flashes white before Flutter draws.
+- **In-app `SplashScreen`** (replaces the placeholder route): brand green, icon clipped to a squircle (`ContinuousRectangleBorder`) over a soft shadow, animated (scale+fade entrance, breathing pulse, expanding halo, staggered wordmark).
+- **Splash hold** (`splashHold`, `lib/core/router/splash_gate.dart` + router `refreshListenable`): the session restores synchronously, so the redirect previously fired on the first frame and the splash never rendered. The countdown starts when the splash **builds** (not at app init) — the native launch screen already covers early startup, so an earlier timer elapsed before Flutter drew.
+- **D-brand-1 (deviation):** branding renders the **raster** `assets/branding/app_icon.png`, not the SVG — `flutter_svg` ignores the gauge's `stroke-dasharray`/`dashoffset` and draws the ~74% safety arc as a **full circle**. Splash, login logo, and dashboard hero header/watermark all use the PNG; the SVG source is retained (un-bundled) as `app_icon_.svg`. Supersedes the §6 "source SVG wired in verbatim" note for on-screen rendering — the SVG remains the design source of truth.
+- **Known limitation:** on Android 12+ the OS masks the splash icon to a **circle** (not overridable), so the sequence is OS circle → in-app squircle. An emblem-only adaptive foreground would make the circle read as intentional.
+
 ## 7. Open Questions / Deviations Log
 - **OQ1:** Confirm `companies` table addition (D1) at Prompt 2A.
 - **OQ2:** Confirm typed-FK linkage vs. untyped polymorphic (D2) at Prompt 2A.

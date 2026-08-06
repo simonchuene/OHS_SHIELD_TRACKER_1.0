@@ -8,7 +8,7 @@ Your task is to design and build an enterprise-grade Occupational Health & Safet
 
 ---
 
-## PROJECT STATUS (updated 2026-08-05)
+## PROJECT STATUS (updated 2026-08-06)
 
 > Living status note. The requirements below are unchanged (canonical). This block records what has actually been built and hardened. Full decision/hardening log: `DECISIONS_LEDGER.md` (§8 compile pass, §9–§10 device testing).
 
@@ -21,6 +21,7 @@ Your task is to design and build an enterprise-grade Occupational Health & Safet
 - **Hazard ↔ CAPA linkage** surfaced on both detail pages (list + navigate).
 - **CAPA**: owner may start work without Supervisor rank (RLS 0016); overdue now triggers the day *after* the due date; risk filter = band-or-more-severe.
 - **Loading UX**: shimmer skeletons replace spinners (dashboard, hazard/CAPA list & detail); Actions page defaults to a status-grouped list.
+- **Branding (2026-08-06)**: OHS launcher/adaptive icon replaces the default Flutter icon (also rebrands the Android 12 splash); brand-green native launch background; animated in-app splash with the icon in a squircle. On-screen branding renders the PNG raster, not the SVG — `flutter_svg` drops the gauge's dash pattern and would draw the safety arc as a full circle.
 - Android `compileSdk` pinned to 36.
 
 **Known pre-release TODO:** remove the DEBUG-ONLY corporate-CA trust (`DevHttpOverrides` + `assets/dev/corporate_ca.pem`, gated to `kDebugMode`) before any public/release build.
