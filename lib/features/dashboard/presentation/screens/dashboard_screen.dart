@@ -2,7 +2,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:intl/intl.dart';
 import 'package:ohs_shield_tracker/core/router/routes.dart';
 import 'package:ohs_shield_tracker/core/theme/app_colors.dart';
 import 'package:ohs_shield_tracker/core/theme/app_radii.dart';
@@ -19,6 +18,7 @@ import 'package:ohs_shield_tracker/features/hazards/presentation/providers/hazar
 import 'package:ohs_shield_tracker/shared/domain/risk_band.dart';
 import 'package:ohs_shield_tracker/shared/widgets/app_shell.dart';
 import 'package:ohs_shield_tracker/shared/widgets/duotone_icon_badge.dart';
+import 'package:ohs_shield_tracker/shared/widgets/offline_banner.dart';
 import 'package:ohs_shield_tracker/shared/widgets/skeleton.dart';
 
 class DashboardScreen extends ConsumerWidget {
@@ -116,15 +116,19 @@ class _Content extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final k = data.kpi;
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      if (data.fromCache)
-        Container(
-          width: double.infinity,
-          margin: const EdgeInsets.only(bottom: 8),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          decoration: BoxDecoration(color: AppColors.warningAmber.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(8)),
-          child: Text('Showing last synced data · ${DateFormat.jm().add_yMMMd().format(data.generatedAt)}',
-              style: const TextStyle(fontSize: 12, color: Color(0xFF8a5a00)),),
+      if (data.fromCache) ...[
+        // This column is pulled up 40px so the score card tucks under the hero
+        // curve; give the banner that height back so it clears the curve instead
+        // of being clipped by it.
+        const SizedBox(height: 44),
+        OfflineBanner(
+          lastUpdated: data.generatedAt,
+          onRetry: () {
+            ref.invalidate(dashboardDataProvider);
+            ref.invalidate(todaysPrioritiesProvider);
+          },
         ),
+      ],
       _SafetyScoreCard(score: data.safetyScore, delta: data.scoreDelta),
       const SizedBox(height: 16),
       Row(children: [
