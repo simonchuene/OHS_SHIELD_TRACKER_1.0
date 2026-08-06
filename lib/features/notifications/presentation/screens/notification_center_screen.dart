@@ -56,7 +56,7 @@ class _Row extends ConsumerWidget {
         border: n.isRead ? null : const Border(left: BorderSide(color: AppColors.primaryGreen, width: 3)),
       ),
       child: ListTile(
-        title: Text(n.title, style: TextStyle(fontWeight: n.isRead ? FontWeight.w400 : FontWeight.w700, color: n.isRead ? AppColors.secondaryText : AppColors.primaryText)),
+        title: Text(n.title, style: TextStyle(fontWeight: n.isRead ? FontWeight.w400 : FontWeight.w700, color: n.isRead ? AppColors.secondaryText : context.primaryTextColor)),
         subtitle: Text('${n.body ?? ''}\n${DateFormat.MMMd().add_jm().format(n.createdAt)}', style: Theme.of(context).textTheme.labelSmall),
         isThreeLine: true,
         trailing: n.isHighPriority

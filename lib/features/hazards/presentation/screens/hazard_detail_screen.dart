@@ -117,7 +117,7 @@ class _StatusStepper extends StatelessWidget {
             color: s.step <= status.step ? AppColors.primaryGreen : AppColors.secondaryText,
           ),
           const SizedBox(width: 4),
-          Text(s.label, style: TextStyle(fontSize: 11, color: s == status ? AppColors.primaryText : AppColors.secondaryText)),
+          Text(s.label, style: TextStyle(fontSize: 11, color: s == status ? context.primaryTextColor : AppColors.secondaryText)),
           if (s != HazardStatus.closed) const Padding(padding: EdgeInsets.symmetric(horizontal: 6), child: Text('›', style: TextStyle(color: AppColors.secondaryText))),
         ],
       ],),

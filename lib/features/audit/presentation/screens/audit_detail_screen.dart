@@ -75,7 +75,7 @@ class _Side extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 6),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(label, style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.w600)),
-          Text(value ?? '—', style: TextStyle(color: muted ? AppColors.secondaryText : AppColors.primaryText)),
+          Text(value ?? '—', style: TextStyle(color: muted ? AppColors.secondaryText : context.primaryTextColor)),
         ],),
       );
 }

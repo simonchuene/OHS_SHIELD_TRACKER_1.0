@@ -33,3 +33,17 @@ abstract final class AppColors {
   // Deeper green for hero gradient (sampled from source icon, Item 4/4a)
   static const primaryGreenDeep = Color(0xFF1B5E20);
 }
+
+/// Brightness-aware text tokens.
+///
+/// The theme already injects the right colour into `textTheme`, so styles taken
+/// from `Theme.of(context).textTheme` adapt automatically. Use these only where
+/// a colour is set explicitly (custom painters, per-state text colours) —
+/// reaching for the raw `AppColors.primaryText` constant there hardcodes the
+/// light-mode value and renders near-black-on-black in dark mode.
+extension AppTextColors on BuildContext {
+  /// Primary text/foreground for the current brightness.
+  Color get primaryTextColor => Theme.of(this).brightness == Brightness.dark
+      ? AppColors.primaryTextDark
+      : AppColors.primaryText;
+}

@@ -14,16 +14,20 @@ class RiskCompass extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Resolved per brightness: the score and the indicator tick are drawn with
+    // an explicit colour, so they must follow the OS light/dark mode rather than
+    // the light-mode constant (which was invisible on a dark surface).
+    final foreground = context.primaryTextColor;
     return SizedBox(
       width: size,
       height: size,
       child: Stack(alignment: Alignment.center, children: [
-        CustomPaint(size: Size(size, size), painter: _CompassPainter(score)),
+        CustomPaint(size: Size(size, size), painter: _CompassPainter(score, foreground)),
         Column(mainAxisSize: MainAxisSize.min, children: [
           Text('$score',
               style: TextStyle(
                 fontSize: size * 0.28, fontWeight: FontWeight.w800,
-                color: AppColors.primaryText, fontFeatures: const [FontFeature.tabularFigures()],
+                color: foreground, fontFeatures: const [FontFeature.tabularFigures()],
               ),),
           Text('of 100', style: TextStyle(fontSize: size * 0.09, color: AppColors.secondaryText)),
         ],),
@@ -41,8 +45,12 @@ class RiskCompass extends StatelessWidget {
 }
 
 class _CompassPainter extends CustomPainter {
-  _CompassPainter(this.score);
+  _CompassPainter(this.score, this.foreground);
   final int score;
+
+  /// Brightness-resolved colour for the score indicator tick (painters have no
+  /// access to a theme, so it is passed in).
+  final Color foreground;
 
   static const _colors = [
     AppColors.primaryGreen, // Low
@@ -71,11 +79,11 @@ class _CompassPainter extends CustomPainter {
     final r = size.width / 2 - 8;
     final c = size.center(Offset.zero);
     final p = Offset(c.dx + r * math.cos(angle), c.dy + r * math.sin(angle));
-    canvas.drawCircle(p, stroke * 0.55, Paint()..color = AppColors.primaryText);
+    canvas.drawCircle(p, stroke * 0.55, Paint()..color = foreground);
   }
 
   double _rad(double deg) => deg * math.pi / 180;
 
   @override
-  bool shouldRepaint(covariant _CompassPainter old) => old.score != score;
+  bool shouldRepaint(covariant _CompassPainter old) => old.score != score || old.foreground != foreground;
 }
