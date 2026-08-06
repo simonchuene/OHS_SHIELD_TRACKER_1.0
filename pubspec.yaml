@@ -69,6 +69,7 @@ dev_dependencies:
   drift_dev: ^2.21.0
   flutter_lints: ^5.0.0
   mocktail: ^1.0.4
+  flutter_launcher_icons: ^0.14.1
   # NOTE: custom_lint / riverpod_lint intentionally omitted — their analyzer
   # pins conflict with the installed Dart 3.12 SDK. Re-add on a 3.24.x toolchain
   # (the pinned target) where `analyzer ^6.x` is valid.
@@ -76,7 +77,7 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   assets:
-    - assets/branding/app_icon.svg
+    - assets/branding/app_icon.png
     # Debug-only: corporate TLS-inspection CA, trusted by DevHttpOverrides in
     # debug builds so the app can reach Supabase from behind a Cisco Umbrella
     # gateway (e.g. an emulator on the corporate network). Never used in release.
@@ -94,3 +95,15 @@ flutter:
   #         weight: 600
   #       - asset: assets/fonts/Inter-Bold.ttf
   #         weight: 700
+
+# Launcher / adaptive icon generation (run: dart run flutter_launcher_icons).
+# Source is the branding tile; adaptive background matches its cream canvas so
+# the emblem sits cleanly under any launcher mask. Also fixes the Android 12
+# splash icon (which uses the launcher icon).
+flutter_launcher_icons:
+  android: true
+  ios: false
+  image_path: "assets/branding/app_icon.png"
+  min_sdk_android: 23
+  adaptive_icon_background: "#FBF9F1"
+  adaptive_icon_foreground: "assets/branding/app_icon.png"

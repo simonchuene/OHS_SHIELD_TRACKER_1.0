@@ -1,6 +1,5 @@
 // path: lib/features/dashboard/presentation/widgets/curved_hero_header.dart
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:ohs_shield_tracker/core/theme/app_colors.dart';
 
 /// Curved green hero header (Master Prompt Item 4/4a): full-bleed green panel
@@ -29,7 +28,7 @@ class CurvedHeroHeader extends StatelessWidget {
         // Brand watermark (real icon asset, low opacity) upper-right.
         Positioned(
           top: -20, right: -30,
-          child: Opacity(opacity: 0.10, child: SvgPicture.asset('assets/branding/app_icon.svg', width: 180, height: 180)),
+          child: Opacity(opacity: 0.10, child: Image.asset('assets/branding/app_icon.png', width: 180, height: 180)),
         ),
         SafeArea(
           bottom: false,
@@ -39,7 +38,7 @@ class CurvedHeroHeader extends StatelessWidget {
               Row(children: [
                 ClipRRect(
                   borderRadius: BorderRadius.circular(11),
-                  child: SvgPicture.asset('assets/branding/app_icon.svg', width: 38, height: 38),
+                  child: Image.asset('assets/branding/app_icon.png', width: 38, height: 38),
                 ),
                 const SizedBox(width: 10),
                 const Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [

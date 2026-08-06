@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Brand primary green (#2E7D32) — used for the launch/splash background so
+         the OS splash matches the in-app SplashScreen (no white/blue flash). -->
+    <color name="brandGreen">#FF2E7D32</color>
+	<color name="ic_launcher_background">#FBF9F1</color>
+</resources>

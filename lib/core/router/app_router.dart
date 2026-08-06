@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:ohs_shield_tracker/core/auth/session_providers.dart';
 import 'package:ohs_shield_tracker/core/providers/core_providers.dart';
 import 'package:ohs_shield_tracker/core/router/routes.dart';
+import 'package:ohs_shield_tracker/core/router/splash_gate.dart';
 import 'package:ohs_shield_tracker/features/auth/presentation/providers/auth_providers.dart';
 import 'package:ohs_shield_tracker/features/auth/presentation/screens/forgot_password_screen.dart';
 import 'package:ohs_shield_tracker/features/audit/presentation/screens/audit_detail_screen.dart';
@@ -32,12 +33,14 @@ import 'package:ohs_shield_tracker/features/user_admin/presentation/screens/user
 import 'package:ohs_shield_tracker/features/user_admin/presentation/screens/user_list_screen.dart';
 import 'package:ohs_shield_tracker/shared/widgets/app_shell.dart';
 import 'package:ohs_shield_tracker/shared/widgets/placeholder_screen.dart';
+import 'package:ohs_shield_tracker/shared/widgets/splash_screen.dart';
 
 /// Declarative navigation (GoRouter) with an auth-redirect guard and a role
 /// guard on restricted routes. Feature prompts replace the [PlaceholderScreen]
 /// builders with real screens; the shell/route structure here is stable.
 final goRouterProvider = Provider<GoRouter>((ref) {
   final client = ref.watch(supabaseClientProvider);
+  final splashGate = ref.watch(splashGateProvider);
 
   final rootKey = GlobalKey<NavigatorState>();
   final shellKeys = List.generate(4, (_) => GlobalKey<NavigatorState>());
@@ -45,13 +48,20 @@ final goRouterProvider = Provider<GoRouter>((ref) {
   return GoRouter(
     navigatorKey: rootKey,
     initialLocation: Routes.splash,
-    refreshListenable: GoRouterRefreshStream(client.auth.onAuthStateChange),
+    refreshListenable: Listenable.merge([
+      GoRouterRefreshStream(client.auth.onAuthStateChange),
+      splashGate,
+    ]),
     redirect: (context, state) {
       final loggedIn = client.auth.currentSession != null;
       final loc = state.matchedLocation;
 
-      // Splash is transient: never linger on it — route straight to the right place.
-      if (loc == Routes.splash) return loggedIn ? Routes.dashboard : Routes.login;
+      // Splash: hold briefly so the branded animation is seen, then route to the
+      // right place. Cold start only — the splash route is never returned to.
+      if (loc == Routes.splash) {
+        if (!splashGate.value) return null;
+        return loggedIn ? Routes.dashboard : Routes.login;
+      }
 
       final authRoutes = {Routes.login, Routes.forgotPassword};
       final onAuthRoute = authRoutes.contains(loc);
@@ -73,7 +83,7 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       return null;
     },
     routes: [
-      GoRoute(path: Routes.splash, builder: (_, __) => const PlaceholderScreen(title: 'OHS Shield Tracker')),
+      GoRoute(path: Routes.splash, builder: (_, __) => const SplashScreen()),
       GoRoute(path: Routes.login, builder: (_, __) => const LoginScreen()),
       GoRoute(path: Routes.forgotPassword, builder: (_, __) => const ForgotPasswordScreen()),
       GoRoute(path: Routes.roleUnavailable, builder: (_, __) => const PlaceholderScreen(title: 'Not available for your role')),

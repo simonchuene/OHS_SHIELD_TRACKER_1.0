@@ -1,7 +1,6 @@
 // path: lib/features/auth/presentation/screens/login_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ohs_shield_tracker/core/error/failure.dart';
 import 'package:ohs_shield_tracker/core/router/routes.dart';
@@ -68,7 +67,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        SvgPicture.asset('assets/branding/app_icon.svg', width: 96, height: 96),
+                        Image.asset('assets/branding/app_icon.png', width: 96, height: 96),
                         const SizedBox(height: 16),
                         Text('OHS Shield Tracker',
                             style: textTheme.headlineMedium, textAlign: TextAlign.center,),
