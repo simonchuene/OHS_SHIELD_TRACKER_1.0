@@ -14,6 +14,8 @@ Your task is to design and build an enterprise-grade Occupational Health & Safet
 
 **Build: complete.** The MVP1 sequence (Prompts 1–18 + 4C/5A/8A) is implemented — all 11 feature modules (Auth/User-Mgmt, Hazards, Risk, Incidents, Investigations, CAPA, Inspections, Dashboard, Reporting, Notifications, Audit), offline-first sync (outbox + cache + LWW/field-merge), RLS + `app.*` helpers, and 4 Edge Functions (`user-admin`, `workflow-transition`, `inspection-item-fail`, `notify-fanout`). Toolchain in use: Flutter 3.44.6 / Dart 3.12.2 (target pin 3.24.5). Tests green.
 
+> **Correction (2026-08-06):** "complete" above previously overstated it. Seven of those modules were **built but unreachable** — the More tab was still the Prompt-4A `PlaceholderScreen`, so Incidents, Investigations, Inspections, Reports, Notifications, Audit and User & Access Administration had routes but no entry point, and `signOut()` was never wired to any UI. Now fixed (see the navigation shell bullet below). Lesson for future status claims: a module is only "done" when it is **navigable**, not merely implemented and routable.
+
 **Deployed & device-tested.** Running against a live Supabase backend on Android (emulator + tablets). Two hardening rounds (§9 2026-08-04, §10 2026-08-05) fixed: the universal blank-screen theme bug, sync-on-launch/enqueue, action-controller & session-expiry auth bugs, the stale read-after-write (transitions needing a second tap), and several list/dashboard defects.
 
 **Recent product enhancements (2026-08-05), extending — not redesigning — the master design system:**
@@ -22,7 +24,10 @@ Your task is to design and build an enterprise-grade Occupational Health & Safet
 - **CAPA**: owner may start work without Supervisor rank (RLS 0016); overdue now triggers the day *after* the due date; risk filter = band-or-more-severe.
 - **Loading UX**: shimmer skeletons replace spinners (dashboard, hazard/CAPA list & detail); Actions page defaults to a status-grouped list.
 - **Branding (2026-08-06)**: OHS launcher/adaptive icon replaces the default Flutter icon (also rebrands the Android 12 splash); brand-green native launch background; animated in-app splash with the icon in a squircle. On-screen branding renders the PNG raster, not the SVG — `flutter_svg` drops the gauge's dash pattern and would draw the safety arc as a full circle.
+- **Navigation shell completed (2026-08-06)**: the More tab is now a real hub (`MoreScreen`) listing Incidents / Investigations / Inspections / Reports / Notifications / Audit log / User & Access Administration, with the signed-in identity and a confirmed **sign-out** (previously unreachable). Entries are role-gated to mirror the router guards and RLS (audit ≥ Safety Officer, user admin = Administrator). Sub-pages open with `push` so they get a back button.
 - Android `compileSdk` pinned to 36.
+
+**Still stubbed:** `Profile` and `Settings` remain `PlaceholderScreen`s and are deliberately **not** listed in More (they would be dead ends).
 
 **Known pre-release TODO:** remove the DEBUG-ONLY corporate-CA trust (`DevHttpOverrides` + `assets/dev/corporate_ca.pem`, gated to `kDebugMode`) before any public/release build.
 
