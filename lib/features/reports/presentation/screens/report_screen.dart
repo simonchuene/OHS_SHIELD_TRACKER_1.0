@@ -1,5 +1,6 @@
 // path: lib/features/reports/presentation/screens/report_screen.dart
 import 'package:flutter/material.dart';
+import 'package:ohs_shield_tracker/shared/widgets/nav_safe_insets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:ohs_shield_tracker/core/error/failure.dart';
@@ -38,7 +39,7 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
 
     return Scaffold(
       appBar: AppBar(title: const Text('Reports')),
-      body: ListView(padding: const EdgeInsets.all(16), children: [
+      body: ListView(padding: navSafeInsets(context), children: [
         DropdownButtonFormField<ReportType>(
           initialValue: _type,
           decoration: const InputDecoration(labelText: 'Report'),

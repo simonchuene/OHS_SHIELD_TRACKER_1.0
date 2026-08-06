@@ -1,5 +1,6 @@
 // path: lib/features/incidents/presentation/screens/incident_list_screen.dart
 import 'package:flutter/material.dart';
+import 'package:ohs_shield_tracker/shared/widgets/nav_safe_insets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -55,7 +56,7 @@ class IncidentListScreen extends ConsumerWidget {
                 : RefreshIndicator(
                     onRefresh: () async => ref.invalidate(incidentListProvider),
                     child: ListView.separated(
-                      padding: const EdgeInsets.all(16),
+                      padding: navSafeInsets(context),
                       itemCount: list.length,
                       separatorBuilder: (_, __) => const SizedBox(height: 10),
                       itemBuilder: (_, i) => _IncidentRow(incident: list[i]),

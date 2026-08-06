@@ -1,5 +1,6 @@
 // path: lib/features/investigations/presentation/screens/investigation_list_screen.dart
 import 'package:flutter/material.dart';
+import 'package:ohs_shield_tracker/shared/widgets/nav_safe_insets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ohs_shield_tracker/core/router/routes.dart';
@@ -23,7 +24,7 @@ class InvestigationListScreen extends ConsumerWidget {
             : RefreshIndicator(
                 onRefresh: () async => ref.invalidate(investigationsAllProvider),
                 child: ListView.separated(
-                  padding: const EdgeInsets.all(16),
+                  padding: navSafeInsets(context),
                   itemCount: list.length,
                   separatorBuilder: (_, __) => const SizedBox(height: 10),
                   itemBuilder: (_, i) {
