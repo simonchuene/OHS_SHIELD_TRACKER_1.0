@@ -3,6 +3,7 @@ import 'package:ohs_shield_tracker/core/providers/core_providers.dart';
 import 'package:ohs_shield_tracker/features/auth/presentation/providers/auth_providers.dart';
 import 'package:ohs_shield_tracker/features/dashboard/data/dashboard_repository.dart';
 import 'package:ohs_shield_tracker/features/dashboard/domain/dashboard_data.dart';
+import 'package:ohs_shield_tracker/features/dashboard/data/priority_repository.dart';
 import 'package:ohs_shield_tracker/features/dashboard/domain/priority_item.dart';
 import 'package:ohs_shield_tracker/services/sync/sync_providers.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -31,22 +32,20 @@ Future<DashboardData> dashboardData(DashboardDataRef ref) async {
   return res.when(ok: (d) => d, err: (f) => throw f);
 }
 
+@riverpod
+PriorityRepository priorityRepository(PriorityRepositoryRef ref) => PriorityRepository(
+      ref.watch(supabaseClientProvider),
+      ref.watch(appDatabaseProvider),
+      ref.watch(loggerProvider),
+    );
+
 /// The top open hazards/CAPAs/incidents needing attention, ranked by severity →
 /// overdue → soonest due → most recently updated (see [PriorityItem.compare]).
-/// RLS scopes the rows to the signed-in user's visibility.
+/// RLS scopes the rows to the signed-in user's visibility; falls back to the
+/// last cached snapshot when the server is unreachable.
 @riverpod
-Future<List<PriorityItem>> todaysPriorities(TodaysPrioritiesRef ref) async {
-  await ref.watch(currentUserProvider.future); // hold loading until signed in
-  final client = ref.watch(supabaseClientProvider);
-  final results = await Future.wait([
-    client.from('hazards').select('id,title,status,risk_level,location_text,updated_at').neq('status', 'closed'),
-    client.from('corrective_actions').select('id,description,status,priority,due_date,updated_at').neq('status', 'closed'),
-    client.from('incidents').select('id,description,incident_type,severity,status,location_text,updated_at').neq('status', 'closed'),
-  ]);
-  final items = <PriorityItem>[
-    for (final h in results[0]) PriorityItem.fromHazard(h),
-    for (final c in results[1]) PriorityItem.fromCapa(c),
-    for (final i in results[2]) PriorityItem.fromIncident(i),
-  ]..sort(PriorityItem.compare);
-  return items.take(5).toList();
+Future<PrioritySnapshot> todaysPriorities(TodaysPrioritiesRef ref) async {
+  final user = await ref.watch(currentUserProvider.future); // hold loading until signed in
+  if (user == null) throw StateError('Not signed in');
+  return ref.watch(priorityRepositoryProvider).load(user.id);
 }

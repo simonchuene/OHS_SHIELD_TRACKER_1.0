@@ -101,6 +101,34 @@ class PriorityItem {
     );
   }
 
+  Map<String, dynamic> toJson() => {
+        'kind': kind.name,
+        'id': id,
+        'title': title,
+        'subtitle': subtitle,
+        'severityRank': severityRank,
+        'statusLabel': statusLabel,
+        'isOverdue': isOverdue,
+        'dueDate': dueDate?.toIso8601String(),
+        'updatedAt': updatedAt.toIso8601String(),
+      };
+
+  factory PriorityItem.fromJson(Map<String, dynamic> j) => PriorityItem(
+        kind: PriorityKind.values.firstWhere(
+          (k) => k.name == j['kind'],
+          orElse: () => PriorityKind.hazard,
+        ),
+        id: j['id'] as String,
+        title: j['title'] as String,
+        subtitle: j['subtitle'] as String,
+        severityRank: (j['severityRank'] as num?)?.toInt() ?? 0,
+        statusLabel: j['statusLabel'] as String? ?? '',
+        isOverdue: j['isOverdue'] as bool? ?? false,
+        dueDate: j['dueDate'] == null ? null : DateTime.tryParse(j['dueDate'] as String),
+        updatedAt: DateTime.tryParse(j['updatedAt'] as String? ?? '') ??
+            DateTime.fromMillisecondsSinceEpoch(0),
+      );
+
   static String _text(dynamic v, String fallback) {
     final s = (v as String?)?.trim();
     return (s == null || s.isEmpty) ? fallback : s;

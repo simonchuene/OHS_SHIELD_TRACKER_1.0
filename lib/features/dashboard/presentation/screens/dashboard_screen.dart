@@ -196,17 +196,28 @@ class _TodaysPriorities extends ConsumerWidget {
           ],),
         ),
         error: (_, __) => Text('Could not load priorities', style: Theme.of(context).textTheme.labelSmall?.copyWith(color: AppColors.secondaryText)),
-        data: (items) => items.isEmpty
-            ? Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                child: Row(children: [
-                  const Icon(Icons.verified_outlined, size: 18, color: AppColors.primaryGreen),
-                  const SizedBox(width: 8),
-                  Text('Nothing needs attention — nice work.',
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppColors.secondaryText),),
-                ],),
-              )
-            : Column(children: [for (final it in items) _PriorityRow(item: it)]),
+        data: (snapshot) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          // Say so when this is the saved copy — a worklist that looks live but
+          // isn't is worse than one that admits it.
+          if (snapshot.fromCache)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: Text('Saved list · updated ${friendlyTimeAgo(snapshot.generatedAt)}',
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(color: AppColors.secondaryText),),
+            ),
+          if (snapshot.items.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Row(children: [
+                const Icon(Icons.verified_outlined, size: 18, color: AppColors.primaryGreen),
+                const SizedBox(width: 8),
+                Text('Nothing needs attention — nice work.',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppColors.secondaryText),),
+              ],),
+            )
+          else
+            for (final it in snapshot.items) _PriorityRow(item: it),
+        ],),
       ),
     ],);
   }
