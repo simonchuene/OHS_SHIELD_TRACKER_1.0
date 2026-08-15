@@ -230,6 +230,34 @@ Continuing §11 on-device against the live backend. §11 fixed the *transport*; 
 
 The rule stands, restated: **a feature is done when its effect is observed, not when its code exists** — and observed *on a device that did not originate the data*, since single-device testing hides exactly this class of bug. Every failure here was silent, because each layer treated "nothing to do" as success.
 
+## 13. Scheduled Sweep & Timezone Correction (2026-08-15)
+
+### 13.1 `notify-sweep` — the deferred cron, delivered
+
+`capa.overdue` and `inspection.due` were defined in `NotificationTrigger` and fully supported by `notify-fanout`, but **nothing could ever raise them**: they describe conditions that become true with the passage of time, not user actions, and Prompt 15 left the sweep as a deferred cron (DEV). New Edge Function `notify-sweep` + migration **0017** close it.
+
+- **What it sweeps.** Overdue CAPAs (`due_date < today`, status ≠ closed, owner set) — `<` not `<=`, so overdue starts the day *after* the due date, matching §10. Due inspections (`scheduled_date <= today`, status in draft/in_progress; submitted/closed need no chasing).
+- **Recipients — owner only (decision).** The CAPA owner; the assigned `inspector_id` for inspections. A CAPA with no owner has nobody to chase and is skipped (it still shows on the dashboard overdue KPI). Escalation to Safety Officers after N days was considered and **rejected for MVP1** as noisy — one notification per overdue CAPA per SO per day. Revisit with an agreed threshold.
+- **Idempotency — at most one notification per entity per trigger per calendar day**, enforced by checking `notifications` for rows created since midnight. Without this a daily sweep re-notifies the same overdue CAPA forever. Chosen over a `last_notified_at` column so no schema change is needed; the notifications table is already the record of what was sent.
+- **Auth — `verify_jwt = false` + a shared secret.** pg_cron has no user session, so the §9 rule ("all functions verify_jwt=true, app-invoked with the user JWT") does not apply to this caller. Deployed with `--no-verify-jwt` and gated on `SWEEP_SECRET`; it runs as service role, so **the secret is the only gate** and the function fails closed (403) until it is set.
+- **`fcm.ts` moved to `supabase/functions/_shared/`** so the event-driven and scheduled functions share one transport. `notify-fanout` redeployed (v4) — identical code, relocated only.
+
+**D-cron-1 — `alter database ... set` is not available on hosted Supabase.** The first cut stored the function URL and secret as custom database parameters, read via `current_setting()`. Applying it failed with `42501: permission denied to set parameter` — the hosted `postgres` role is not superuser. **Fix:** both live in **Supabase Vault** (`vault.create_secret` / `vault.decrypted_secrets`), read by the `SECURITY DEFINER` function. This also keeps migration 0017 environment-agnostic and secret-free, which matters because dev/uat/prod are separate projects with different URLs and secrets.
+
+**⚠️ Migration tracking drift — do not run `supabase db push`.** `supabase migration list` reports **all** migrations as unapplied remotely, because §9 applied the schema by hand via `apply_all.sql`, which does not write `supabase_migrations.schema_migrations`. A `db push` would try to replay 0001→0017 against a database that already has everything. Apply 0017 through the dashboard SQL editor, as with previous migrations. Fixing the drift properly means `supabase migration repair --status applied 0001…0016` — not yet done.
+
+### 13.2 D-tz-1 — every absolute timestamp rendered N hours behind
+
+Reported as notifications showing 2 hours behind in CAT (UTC+2). Systemic, not notification-specific: Postgres `timestamptz` serialises with an offset, so `DateTime.parse` yields a **UTC** `DateTime`, and `DateFormat.format()` prints that value's own wall-clock — i.e. UTC. Every user east of UTC saw absolute times shifted back by their offset. `toLocal()` existed in exactly two places in the codebase, one of them `priority_item.dart`, where the symptom had evidently been hit and patched locally without the general cause being found.
+
+- **Fix:** `lib/core/utils/date_time_x.dart` — `DateTime.local` (`isUtc ? toLocal() : this`), applied at all seven absolute-timestamp display sites (Notification Center, audit list/detail, incident list/detail, report history, PDF export).
+- **The `isUtc` guard is load-bearing.** `date` columns (`due_date`, `scheduled_date`) parse as **local midnight**, not UTC. A blanket `toLocal()` is harmless east of UTC but shifts the day *west* of it. Guarding leaves date-only values untouched.
+- **Relative times were never wrong.** `friendlyTimeAgo` works on `difference()`, which compares absolute instants regardless of `isUtc`.
+- Covered by `test/core/utils/date_time_x_test.dart` (UTC converts and stays the same instant; date-only untouched; idempotent).
+- **Residual, documented:** `notify-sweep` computes "today" as a UTC date. At its 06:00 UTC / 08:00 CAT run time the UTC and local dates agree, so scheduled runs are correct; a *manual* run between 00:00–02:00 CAT would use the previous UTC day.
+
+**Process.** D-tz-1 is a third failure shape, distinct from the §12 pair: **a correct local patch that masked a general defect.** Someone fixed the dashboard's timestamps with a `toLocal()` at the point of pain and moved on, leaving six other surfaces wrong and no shared helper. Worth asking, when a fix is a one-liner at a call site: *is this the only place this data crosses this boundary?*
+
 ## 7. Open Questions / Deviations Log
 - **OQ1:** Confirm `companies` table addition (D1) at Prompt 2A.
 - **OQ2:** Confirm typed-FK linkage vs. untyped polymorphic (D2) at Prompt 2A.
