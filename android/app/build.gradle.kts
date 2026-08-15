@@ -2,10 +2,11 @@ plugins {
     id("com.android.application")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
-    // Firebase Cloud Messaging (Prompt 15/18): enable AFTER adding a per-env
-    // google-services.json to android/app/. Left disabled so the base build
-    // works without Firebase config (FcmService degrades gracefully).
-    // id("com.google.gms.google-services")
+    // Firebase Cloud Messaging (Prompt 15/18): enabled 2026-08-14. Config is
+    // per-flavour at android/app/src/<flavour>/google-services.json (dev only
+    // so far) — the plugin resolves the flavour source set, so uat/prod builds
+    // will fail loudly until theirs are added rather than silently using dev's.
+    id("com.google.gms.google-services")
 }
 
 android {
