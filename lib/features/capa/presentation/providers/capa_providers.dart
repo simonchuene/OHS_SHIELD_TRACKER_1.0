@@ -90,8 +90,14 @@ class CapaController extends _$CapaController {
       state = const AsyncData(null);
       ref.invalidate(capaListProvider);
       if (ownerId != null) {
+        // Send the owner explicitly. A CAPA is created into the offline outbox
+        // with a client-minted id, so it does not exist server-side yet — the
+        // function's `owner_id` lookup would miss and fall through to the
+        // Safety Officer+ audience, notifying the wrong people and never the
+        // owner. `recipientIds` is honoured ahead of any lookup.
         ref.read(notificationTriggersProvider).fire(
-            NotificationTrigger.capaAssigned, entityType: 'corrective_action', entityId: c.id,);
+            NotificationTrigger.capaAssigned, entityType: 'corrective_action', entityId: c.id,
+            data: {'recipientIds': [ownerId]},);
       }
       return c;
     }, err: (f) { _fail(f); return null; },);
@@ -103,7 +109,19 @@ class CapaController extends _$CapaController {
     state = const AsyncLoading();
     final res = await ref.read(capaUseCasesProvider).update(
         id: capa.id, changes: changes, baseVersion: capa.version, companyId: user.companyId, userId: user.id,);
-    return res.when(ok: (_) { state = const AsyncData(null); _invalidate(capa.id); return true; }, err: _errBool);
+    return res.when(ok: (_) {
+      state = const AsyncData(null);
+      _invalidate(capa.id);
+      // Reassignment must notify the new owner too — `create` only covers the
+      // first assignment, so changing owner_id here previously notified nobody.
+      final newOwnerId = changes['owner_id'] as String?;
+      if (newOwnerId != null && newOwnerId != capa.ownerId) {
+        ref.read(notificationTriggersProvider).fire(
+            NotificationTrigger.capaAssigned, entityType: 'corrective_action', entityId: capa.id,
+            data: {'recipientIds': [newOwnerId]},);
+      }
+      return true;
+    }, err: _errBool,);
   }
 
   Future<bool> advance(CorrectiveAction capa, CapaStatus to) async {
