@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:ohs_shield_tracker/core/utils/date_time_x.dart';
 import 'package:ohs_shield_tracker/core/theme/app_colors.dart';
 import 'package:ohs_shield_tracker/features/audit/domain/audit_filter.dart';
 import 'package:ohs_shield_tracker/features/audit/presentation/providers/audit_providers.dart';
@@ -60,7 +61,7 @@ class AuditListScreen extends ConsumerWidget {
                         final e = list[i];
                         return ListTile(
                           title: Text(e.action, style: const TextStyle(fontWeight: FontWeight.w600)),
-                          subtitle: Text('${e.entityType} · ${e.actorId != null ? (userName[e.actorId] ?? 'User') : 'System'} · ${DateFormat.yMMMd().add_jm().format(e.createdAt)}',
+                          subtitle: Text('${e.entityType} · ${e.actorId != null ? (userName[e.actorId] ?? 'User') : 'System'} · ${DateFormat.yMMMd().add_jm().format(e.createdAt.local)}',
                               style: Theme.of(context).textTheme.labelSmall,),
                           trailing: const Icon(Icons.chevron_right_rounded, color: AppColors.secondaryText),
                           onTap: () => context.push('/audit/${e.id}'),

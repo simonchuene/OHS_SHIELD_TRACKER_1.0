@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:ohs_shield_tracker/core/utils/date_time_x.dart';
 import 'package:ohs_shield_tracker/core/theme/app_colors.dart';
 import 'package:ohs_shield_tracker/features/audit/domain/audit_log_entry.dart';
 import 'package:ohs_shield_tracker/features/audit/presentation/providers/audit_providers.dart';
@@ -25,7 +26,7 @@ class AuditDetailScreen extends ConsumerWidget {
             Text(e.action, style: Theme.of(context).textTheme.headlineMedium),
             const SizedBox(height: 4),
             Text('${e.entityType}${e.entityId != null ? ' · ${e.entityId}' : ''}', style: Theme.of(context).textTheme.labelSmall),
-            Text(DateFormat.yMMMEd().add_jms().format(e.createdAt), style: Theme.of(context).textTheme.labelSmall),
+            Text(DateFormat.yMMMEd().add_jms().format(e.createdAt.local), style: Theme.of(context).textTheme.labelSmall),
             const SizedBox(height: 16),
             Text('Changes', style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 8),

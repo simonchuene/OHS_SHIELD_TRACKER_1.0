@@ -2,6 +2,7 @@
 import 'dart:io';
 
 import 'package:intl/intl.dart';
+import 'package:ohs_shield_tracker/core/utils/date_time_x.dart';
 import 'package:ohs_shield_tracker/features/reports/domain/report_models.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
@@ -41,7 +42,7 @@ class ReportExporter {
       pw.MultiPage(
         build: (context) => [
           pw.Header(level: 0, text: r.title),
-          pw.Text('Generated ${DateFormat.yMMMd().add_jm().format(r.generatedAt)} · ${r.rowCount} row(s)',
+          pw.Text('Generated ${DateFormat.yMMMd().add_jm().format(r.generatedAt.local)} · ${r.rowCount} row(s)',
               style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey700),),
           pw.SizedBox(height: 12),
           pw.TableHelper.fromTextArray(
@@ -63,7 +64,7 @@ class ReportExporter {
   Future<File> _file(ReportResult r, String ext) async {
     final dir = await getApplicationDocumentsDirectory();
     final reports = Directory(p.join(dir.path, 'reports'))..createSync(recursive: true);
-    final stamp = DateFormat('yyyyMMdd_HHmmss').format(r.generatedAt);
+    final stamp = DateFormat('yyyyMMdd_HHmmss').format(r.generatedAt.local);
     final name = '${r.type.name}_$stamp.$ext';
     return File(p.join(reports.path, name));
   }

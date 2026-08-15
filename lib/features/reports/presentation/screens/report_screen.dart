@@ -1,5 +1,6 @@
 // path: lib/features/reports/presentation/screens/report_screen.dart
 import 'package:flutter/material.dart';
+import 'package:ohs_shield_tracker/core/utils/date_time_x.dart';
 import 'package:ohs_shield_tracker/shared/widgets/nav_safe_insets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -89,7 +90,7 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
                       contentPadding: EdgeInsets.zero,
                       leading: Icon(h.format == ReportFormat.pdf ? Icons.picture_as_pdf_outlined : Icons.grid_on_outlined),
                       title: Text(h.title),
-                      subtitle: Text('${h.format.name.toUpperCase()} · ${DateFormat.yMMMd().add_jm().format(h.generatedAt)}', style: Theme.of(context).textTheme.labelSmall),
+                      subtitle: Text('${h.format.name.toUpperCase()} · ${DateFormat.yMMMd().add_jm().format(h.generatedAt.local)}', style: Theme.of(context).textTheme.labelSmall),
                     ),
                 ],),
         ),

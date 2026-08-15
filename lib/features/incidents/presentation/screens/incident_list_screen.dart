@@ -1,5 +1,6 @@
 // path: lib/features/incidents/presentation/screens/incident_list_screen.dart
 import 'package:flutter/material.dart';
+import 'package:ohs_shield_tracker/core/utils/date_time_x.dart';
 import 'package:ohs_shield_tracker/shared/widgets/nav_safe_insets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -80,7 +81,7 @@ class _IncidentRow extends ConsumerWidget {
         onTap: () => context.push('${Routes.incidents}/${incident.id}'),
         leading: DuotoneIconBadge(icon: incidentTypeIcon(incident.type), color: incidentSeverityColor(incident.severity)),
         title: Text(incident.type.label),
-        subtitle: Text('${DateFormat.yMMMd().add_jm().format(incident.occurredAt)} · ${incident.status.label}',
+        subtitle: Text('${DateFormat.yMMMd().add_jm().format(incident.occurredAt.local)} · ${incident.status.label}',
             style: Theme.of(context).textTheme.labelSmall,),
         trailing: Row(mainAxisSize: MainAxisSize.min, children: [
           if (sync != null && sync != SyncStatus.synced)

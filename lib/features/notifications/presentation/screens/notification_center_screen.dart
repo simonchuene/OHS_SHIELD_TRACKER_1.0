@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:ohs_shield_tracker/core/utils/date_time_x.dart';
 import 'package:ohs_shield_tracker/core/theme/app_colors.dart';
 import 'package:ohs_shield_tracker/features/notifications/domain/app_notification.dart';
 import 'package:ohs_shield_tracker/features/notifications/presentation/providers/notification_providers.dart';
@@ -57,7 +58,7 @@ class _Row extends ConsumerWidget {
       ),
       child: ListTile(
         title: Text(n.title, style: TextStyle(fontWeight: n.isRead ? FontWeight.w400 : FontWeight.w700, color: n.isRead ? AppColors.secondaryText : context.primaryTextColor)),
-        subtitle: Text('${n.body ?? ''}\n${DateFormat.MMMd().add_jm().format(n.createdAt)}', style: Theme.of(context).textTheme.labelSmall),
+        subtitle: Text('${n.body ?? ''}\n${DateFormat.MMMd().add_jm().format(n.createdAt.local)}', style: Theme.of(context).textTheme.labelSmall),
         isThreeLine: true,
         trailing: n.isHighPriority
             ? Container(

@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:ohs_shield_tracker/core/utils/date_time_x.dart';
 import 'package:ohs_shield_tracker/core/error/failure.dart';
 import 'package:ohs_shield_tracker/core/theme/app_colors.dart';
 import 'package:ohs_shield_tracker/features/attachments/domain/entities/attachment_owner_type.dart';
@@ -34,7 +35,7 @@ class IncidentDetailScreen extends ConsumerWidget {
               SeverityPill(severity: i.severity),
             ],),
             const SizedBox(height: 8),
-            _kv('Occurred', DateFormat.yMMMd().add_jm().format(i.occurredAt)),
+            _kv('Occurred', DateFormat.yMMMd().add_jm().format(i.occurredAt.local)),
             _kv('Status', i.status.label),
             if (i.description != null) _kv('Description', i.description!),
             if (i.locationText != null) _kv('Location', i.locationText!),
