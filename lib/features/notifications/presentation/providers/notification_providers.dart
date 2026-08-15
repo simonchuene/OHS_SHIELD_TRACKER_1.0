@@ -45,7 +45,12 @@ class NotificationController extends _$NotificationController {
   }
 
   /// Register this device for push + wire deep-link handling. Called after login.
-  Future<void> registerForPush(void Function(String route) onDeepLink) async {
+  /// [onForegroundMessage] surfaces a push that arrives while the app is in
+  /// focus, which Android will not display itself.
+  Future<void> registerForPush(
+    void Function(String route) onDeepLink, {
+    void Function(String title, String body, String? route)? onForegroundMessage,
+  }) async {
     final user = ref.read(currentUserProvider).valueOrNull;
     if (user == null) return;
     await ref.read(fcmServiceProvider).init(
@@ -54,6 +59,12 @@ class NotificationController extends _$NotificationController {
               token: token, platform: platform, userId: user.id, companyId: user.companyId,);
       },
       onDeepLink: onDeepLink,
+      onForegroundMessage: (title, body, route) {
+        // A foreground push means a new in-app row exists server-side; refresh
+        // so the unread badge updates without opening the Notification Center.
+        ref.invalidate(notificationsListProvider);
+        onForegroundMessage?.call(title, body, route);
+      },
     );
   }
 

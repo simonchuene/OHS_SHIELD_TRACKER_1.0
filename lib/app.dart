@@ -1,6 +1,7 @@
 // path: lib/app.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:ohs_shield_tracker/core/router/app_router.dart';
 import 'package:ohs_shield_tracker/core/theme/app_theme.dart';
 import 'package:ohs_shield_tracker/features/attachments/presentation/providers/attachment_providers.dart';
@@ -25,6 +26,32 @@ class _OhsShieldAppState extends ConsumerState<OhsShieldApp> {
   /// different user signs in on the same device.
   String? _pushRegisteredFor;
 
+  /// Lets a foreground push raise a banner from outside any widget's context.
+  final _messengerKey = GlobalKey<ScaffoldMessengerState>();
+
+  /// Android suppresses its own notification while the app is in focus, so a
+  /// push arriving during use is shown in-app instead.
+  void _showForegroundNotification(String title, String body, String? route, GoRouter router) {
+    final messenger = _messengerKey.currentState;
+    if (messenger == null) return;
+    messenger
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(
+        duration: const Duration(seconds: 6),
+        content: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
+            if (body.isNotEmpty) Text(body),
+          ],
+        ),
+        action: route == null
+            ? null
+            : SnackBarAction(label: 'View', onPressed: () => router.go(route)),
+      ),);
+  }
+
   @override
   Widget build(BuildContext context) {
     final router = ref.watch(goRouterProvider);
@@ -44,13 +71,18 @@ class _OhsShieldAppState extends ConsumerState<OhsShieldApp> {
       if (userId != null) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;
-          ref.read(notificationControllerProvider.notifier).registerForPush(router.go);
+          ref.read(notificationControllerProvider.notifier).registerForPush(
+                router.go,
+                onForegroundMessage: (title, body, route) =>
+                    _showForegroundNotification(title, body, route, router),
+              );
         });
       }
     }
 
     return MaterialApp.router(
       title: 'OHS Shield Tracker',
+      scaffoldMessengerKey: _messengerKey,
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
       darkTheme: AppTheme.dark,
