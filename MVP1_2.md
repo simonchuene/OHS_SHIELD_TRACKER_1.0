@@ -29,6 +29,14 @@ Your task is to design and build an enterprise-grade Occupational Health & Safet
 
 **Still stubbed:** `Profile` and `Settings` remain `PlaceholderScreen`s and are deliberately **not** listed in More (they would be dead ends).
 
+**Push notifications — corrected 2026-08-14 (see Ledger §11).** Push was recorded as "deferred, needs `FCM_SERVER_KEY` (Prompt 18)". That understated it: `FCM_SERVER_KEY` authorises the **legacy FCM HTTP API, which Google retired in 2024**, so the deferral was blocked on a credential that can no longer be issued — and push was dead on **Android too**, not just iOS. `notify-fanout` has been migrated to **FCM HTTP v1** (new `notify-fanout/fcm.ts`: service-account OAuth2, per-platform `android`/`apns` payloads, stale-token retirement). Config is now `FIREBASE_SERVICE_ACCOUNT`. Deno 2.9.5 + Supabase CLI 2.114.0 were installed to check it: `deno check` passes on all four Edge Functions (a first static baseline). Deployed to the live project (v3).
+
+**Notification wiring — corrected 2026-08-15 (Ledger §12).** On-device testing found three further defects, all of the §10 shape: `registerForPush` had **no caller**, so `device_tokens` was empty on every build ever made and push had nowhere to send; `capa.assigned` resolved its recipient against a CAPA that the offline outbox had not yet synced, misrouting the notification to Safety Officers instead of the owner; and CAPA **reassignment** fired nothing at all. All three fixed. Flutter on the build workstation upgraded to the recorded **3.44.6 / Dart 3.12.2**.
+
+**Now proven on-device:** `device_tokens` registers real tokens, and **in-app notifications work end to end** (dispatch → recipient resolution → insert → RLS → Notification Center). **Still unproven:** the FCM send itself has never been exercised against Google. **Known gap:** no `onMessage` handler, so a push pop-up can only appear while the app is backgrounded or terminated; `capa.overdue` and `inspection.due` still have no scheduler.
+
+> **Scope note:** push appears in NOTIFICATIONS and the tech stack, but **not** in the 10 SUCCESS CRITERIA below — those are all satisfied. iOS is out of MVP1 scope (no `ios/` directory; `docs/18` defers Apple to a macOS runner with signing certs).
+
 **Known pre-release TODO:** remove the DEBUG-ONLY corporate-CA trust (`DevHttpOverrides` + `assets/dev/corporate_ca.pem`, gated to `kDebugMode`) before any public/release build.
 
 **Deferred (post-MVP1, unchanged):** licensing/seats (MVP2), server-side `dashboard-aggregates`, JWT-claims access-token hook, Realtime.
