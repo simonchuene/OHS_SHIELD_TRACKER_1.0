@@ -24,7 +24,7 @@ Same migration set + code promote across all; only config (URL/anon key/flavor/F
 ## 2. Supabase deployment
 - **Migrations** are forward-only (`supabase/migrations/0001…0015`, + `0006–0008` RLS, + user-mgmt/audit/trigger migrations). Promote with `supabase db push`; never edit an applied migration — add a new one.
 - **Edge Functions**: `user-admin`, `workflow-transition`, `inspection-item-fail`, `notify-fanout` → `supabase functions deploy`.
-- **Function secrets** (per env, out-of-band, never in git): `supabase secrets set FCM_SERVER_KEY=…` (+ the service-role key is provided to functions by Supabase automatically as `SUPABASE_SERVICE_ROLE_KEY`).
+- **Function secrets** (per env, out-of-band, never in git): `supabase secrets set FIREBASE_SERVICE_ACCOUNT="$(cat service-account.json)"` — see §5 (+ the service-role key is provided to functions by Supabase automatically as `SUPABASE_SERVICE_ROLE_KEY`).
 - **Storage**: private `attachments` bucket created by migration `0008`.
 - **Seed**: `seed.sql` (roles only). **Bootstrap** the first company + first Administrator per env via a one-off service-role script (see §10) — the client can't self-provision (4C/5A).
 
@@ -42,7 +42,12 @@ Same migration set + code promote across all; only config (URL/anon key/flavor/F
 
 ## 5. Firebase / FCM (per environment)
 - One Firebase project per env; add `google-services.json` (Android) / `GoogleService-Info.plist` (iOS) at build time (gitignored, injected by CI or provisioning).
-- APNs key (iOS) uploaded to the env's Firebase project. `FCM_SERVER_KEY` set as a Supabase function secret so `notify-fanout` can push. Push stays inactive (gracefully) until these are wired.
+- APNs key (iOS) uploaded to the env's Firebase project. Push stays inactive (gracefully) until these are wired.
+- **Push credential — `FIREBASE_SERVICE_ACCOUNT`** (not the legacy `FCM_SERVER_KEY`, which Google retired in 2024). Create a service account in the env's Firebase project with the **Firebase Cloud Messaging API** enabled, download its JSON key, and set it as a Supabase function secret:
+  ```
+  supabase secrets set FIREBASE_SERVICE_ACCOUNT="$(cat service-account.json)"
+  ```
+  `notify-fanout/fcm.ts` mints a short-lived OAuth2 bearer from it per instance. The JSON is a **server-only secret** — it never ships in the app bundle (unlike `google-services.json`, which is client config and not a credential).
 
 ## 6. Monitoring
 - **App**: Firebase Crashlytics + Analytics (per env); Sentry optional for Dart errors.

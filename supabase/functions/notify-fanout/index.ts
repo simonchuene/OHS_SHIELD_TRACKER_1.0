@@ -7,6 +7,7 @@
 
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { fcmConfigured, sendPush } from './fcm.ts';
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -16,7 +17,6 @@ const cors = {
 const URL = Deno.env.get('SUPABASE_URL')!;
 const ANON = Deno.env.get('SUPABASE_ANON_KEY')!;
 const SERVICE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-const FCM_KEY = Deno.env.get('FCM_SERVER_KEY'); // legacy HTTP key; or wire HTTP v1 + service account
 const json = (b: unknown, s = 200) => new Response(JSON.stringify(b), { status: s, headers: { ...cors, 'Content-Type': 'application/json' } });
 
 // Client fires dotted names (D7); the DB enum uses underscores.
@@ -81,19 +81,31 @@ serve(async (req) => {
     title, body: message, entity_type: entityType, entity_id: entityId,
   })));
 
-  // Push (best-effort). Requires FCM credentials; skipped gracefully otherwise.
+  // Push (best-effort). Requires FIREBASE_SERVICE_ACCOUNT; skipped gracefully
+  // otherwise — the in-app rows above are the guaranteed channel.
   let pushed = 0;
-  if (FCM_KEY) {
-    const { data: tokens } = await admin.from('device_tokens').select('token').in('user_id', recipients).eq('is_active', true);
-    for (const t of tokens ?? []) {
-      try {
-        await fetch('https://fcm.googleapis.com/fcm/send', {
-          method: 'POST',
-          headers: { 'Authorization': `key=${FCM_KEY}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ to: t.token, notification: { title, body: message }, data: { entityType, entityId } }),
-        });
-        pushed++;
-      } catch (_) { /* best effort */ }
+  if (fcmConfigured) {
+    const { data: tokens } = await admin
+      .from('device_tokens').select('id, token').in('user_id', recipients).eq('is_active', true);
+
+    const stale: string[] = [];
+    const outcomes = await Promise.allSettled((tokens ?? []).map(async (t: { id: string; token: string }) => {
+      const outcome = await sendPush({
+        token: t.token,
+        title,
+        body: message,
+        data: { entityType: String(entityType), entityId: String(entityId), trigger: triggerEnum },
+        highPriority: priority === 'high' || priority === 'critical',
+      });
+      if (outcome === 'stale') stale.push(t.id);
+      return outcome;
+    }));
+    pushed = outcomes.filter((o) => o.status === 'fulfilled' && o.value === 'sent').length;
+
+    // Retire tokens FCM rejected outright, so a dead device stops costing a
+    // send on every future fan-out.
+    if (stale.length > 0) {
+      await admin.from('device_tokens').update({ is_active: false }).in('id', stale);
     }
   }
 

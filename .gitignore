@@ -24,6 +24,13 @@ supabase/.temp/
 # Firebase config (added per environment during deploy)
 google-services.json
 GoogleService-Info.plist
+# Firebase service-account keys — SERVER credentials for FCM HTTP v1
+# (FIREBASE_SERVICE_ACCOUNT). Unlike google-services.json these are secrets:
+# they authorise push to every device. Keep them outside the repo entirely;
+# these patterns are only a safety net against an accidental `git add .`.
+service-account*.json
+*service-account.json
+*firebase-adminsdk*.json
 # IDE / OS
 .idea/
 .vscode/

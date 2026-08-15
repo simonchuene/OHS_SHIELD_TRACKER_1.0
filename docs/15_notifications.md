@@ -2,10 +2,10 @@
 
 > Consolidates the triggers stubbed in Prompts 7–13 into real in-app + FCM delivery. Source of truth: `MVP1_2.md` + `DECISIONS_LEDGER.md`.
 >
-> **Status:** Draft for human approval. Review-ready (needs `pub get`, `build_runner`, `supabase functions deploy notify-fanout`, Firebase config + `FCM_SERVER_KEY` for push — Prompt 18).
+> **Status:** Draft for human approval. Review-ready (needs `pub get`, `build_runner`, `supabase functions deploy notify-fanout`, Firebase config + `FIREBASE_SERVICE_ACCOUNT` for push — Prompt 18).
 
 ## Files
-- server: `supabase/functions/notify-fanout/index.ts`
+- server: `supabase/functions/notify-fanout/index.ts` (fan-out), `notify-fanout/fcm.ts` (FCM HTTP v1 transport)
 - dispatcher: `lib/services/notifications/notification_triggers.dart` (stub → real `notify-fanout` invoke; same `fire()` signature)
 - domain: `app_notification.dart` (+ `NotificationDeepLink`)
 - data: `notification_dto.dart`, `notification_repository.dart`, `fcm_service.dart`
@@ -25,6 +25,7 @@ Hazards (`hazard.created`), Incidents (`incident.created`), Risk (`risk.assessed
 ## 4. In-app + push
 - **In-app**: `notifications` table (RLS: recipient-only), Notification Center with unread styling, mark-read/mark-all, and an unread **badge count**.
 - **Push (FCM)**: `FcmService` initialises Firebase (best-effort), requests permission, registers the device token in `device_tokens`, and routes taps. Guarded so a missing Firebase config never crashes the app (push stays inactive until Prompt 18 wiring).
+- **Push transport — FCM HTTP v1** (`fcm.ts`). The legacy `fcm.googleapis.com/fcm/send` endpoint with a static `FCM_SERVER_KEY` was **retired by Google in 2024**; v1 authorises with a short-lived OAuth2 bearer minted from a service account (RS256-signed JWT → token exchange, cached per instance). Config is `FIREBASE_SERVICE_ACCOUNT` (the service-account JSON). Payloads carry per-platform `android` / `apns` blocks so priority maps correctly on both; `data` values are strings, as v1 requires. Sends run concurrently, and a token FCM rejects as `UNREGISTERED`/`INVALID_ARGUMENT` is set `is_active = false` so a dead device stops costing a send. Absent config still degrades to a silent no-op — in-app remains the guaranteed channel.
 
 ## 5. Deep linking
 `NotificationDeepLink.routeFor(entityType, entityId)` maps hazard/incident/investigation/corrective_action/inspection → the record route; tapping a notification (in-app or push) marks it read and navigates. Tested.
@@ -39,7 +40,7 @@ Trigger-level preferences are a light MVP concern: the UI can mute trigger types
 | Requirement | Handling / test |
 |---|---|
 | In-app notifications | `notifications` table + Center screen |
-| FCM push, `device_tokens` | `FcmService` register + `notify-fanout` push |
+| FCM push, `device_tokens` | `FcmService` register + `notify-fanout` push (HTTP v1, `fcm.ts`) |
 | Notification Center | screen + unread badge |
 | Deep linking | `NotificationDeepLink` + `deep_link_test` |
 | Triggers (7 sources) | dotted→enum map in `notify-fanout` |
