@@ -1,5 +1,6 @@
-// path: supabase/functions/notify-fanout/fcm.ts
-// FCM HTTP v1 transport for `notify-fanout`.
+// path: supabase/functions/_shared/fcm.ts
+// FCM HTTP v1 transport, shared by `notify-fanout` (event-driven) and
+// `notify-sweep` (scheduled).
 //
 // The legacy endpoint this replaced (`fcm.googleapis.com/fcm/send`, authorised
 // by a static `FCM_SERVER_KEY`) was retired by Google in 2024. v1 authorises
