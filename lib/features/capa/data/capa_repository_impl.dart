@@ -1,6 +1,7 @@
 // path: lib/features/capa/data/capa_repository_impl.dart
 import 'dart:convert';
 
+import 'package:drift/drift.dart' show Value;
 import 'package:ohs_shield_tracker/core/database/app_database.dart';
 import 'package:ohs_shield_tracker/core/error/failure.dart';
 import 'package:ohs_shield_tracker/core/error/result.dart';
@@ -40,6 +41,7 @@ final class CapaRepositoryImpl extends BaseRepository implements CapaRepository 
         for (final r in rows) {
           final c = CapaDto.fromJson(r).toEntity();
           byId[c.id] = c;
+          await _cacheServerRow(c.id, r);
         }
       } catch (e, s) {
         logger.warn('capa list: server unavailable, using cache', e, s);
@@ -93,6 +95,20 @@ final class CapaRepositoryImpl extends BaseRepository implements CapaRepository 
     }, context: 'listCapaForHazard',);
   }
 
+  /// Cache-on-read: persist a server row so a later offline/failed fetch falls
+  /// back to last-known data, and — critically — so `enqueueUpdate` has a full
+  /// record to merge its changed fields over. Mirrors the hazard repository.
+  Future<void> _cacheServerRow(String id, Map<String, dynamic> row) async {
+    await _db.upsertCache(CachedRecordsCompanion(
+      entityType: Value(_entity),
+      entityId: Value(id),
+      data: Value(jsonEncode(row)),
+      version: Value((row['version'] as num?)?.toInt() ?? 0),
+      syncStatus: Value(SyncStatus.synced.name),
+      updatedAt: Value(DateTime.now()),
+    ),);
+  }
+
   @override
   Future<Result<CorrectiveAction>> get(String id) {
     return run(() async {
@@ -105,15 +121,34 @@ final class CapaRepositoryImpl extends BaseRepository implements CapaRepository 
       // while a mutation is still pending/syncing.
       if (cached != null &&
           (cached.syncStatus == SyncStatus.pending.name || cached.syncStatus == SyncStatus.syncing.name)) {
-        return CapaDto.fromJson(jsonDecode(cached.data) as Map<String, dynamic>).toEntity();
+        // Tolerate an incomplete cache entry. `enqueueUpdate` merges the changed
+        // fields over whatever is cached, so a device that never held this row
+        // (an owner acting on someone else's CAPA) would cache the change alone
+        // — and deserialising that fragment threw, surfacing as "Unexpected
+        // error". Cache-on-read below prevents it; this keeps a stale/partial
+        // entry from hard-failing the screen instead of falling back.
+        try {
+          return CapaDto.fromJson(jsonDecode(cached.data) as Map<String, dynamic>).toEntity();
+        } catch (e, s) {
+          logger.warn('getCapa: incomplete local cache for $id, falling back to server', e, s);
+        }
       }
       try {
         final row = await _client.from('corrective_actions').select().eq('id', id).maybeSingle();
-        if (row != null) return CapaDto.fromJson(row).toEntity();
+        if (row != null) {
+          await _cacheServerRow(id, row);
+          return CapaDto.fromJson(row).toEntity();
+        }
       } catch (e, s) {
         logger.warn('getCapa: server unavailable, using cache', e, s);
       }
-      if (cached != null) return CapaDto.fromJson(jsonDecode(cached.data) as Map<String, dynamic>).toEntity();
+      if (cached != null) {
+        try {
+          return CapaDto.fromJson(jsonDecode(cached.data) as Map<String, dynamic>).toEntity();
+        } catch (e, s) {
+          logger.error('getCapa: cached row for $id is unusable', e, s);
+        }
+      }
       throw StateError('CAPA not found: $id');
     }, context: 'getCapa',);
   }
