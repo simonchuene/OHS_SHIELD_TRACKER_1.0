@@ -1,0 +1,41 @@
+<!-- path: android/app/src/main/res/drawable/ic_stat_ohs_shield.xml
+
+     Notification small icon.
+
+     Android masks the small icon to a flat silhouette using only its ALPHA
+     channel (API 21+). Without this, FCM falls back to the launcher icon, whose
+     full-colour squircle has no meaningful alpha and renders as a white blob.
+     So this must be shape-only: white fill on transparent, no gradients, no
+     colour.
+
+     Geometry is the shield + health cross from assets/branding/app_icon_.svg,
+     scaled from that file's 512 canvas into the conventional 24dp viewport. The
+     gauge ring and check badge are deliberately dropped — at 24dp they collapse
+     into noise, and the shield alone is the recognisable mark.
+
+     The cross is a HOLE, not a drawn shape: evenOdd fill turns the second
+     subpath into negative space, so it stays visible after the system flattens
+     everything to one colour. It is a single plus-shaped subpath rather than two
+     overlapping bars, because two overlapping rects under evenOdd would flip the
+     intersection back to filled and put a solid square in the middle.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:fillType="evenOdd"
+        android:pathData="M5.56,2.61
+                          C5.56,2.61 12,1 18.43,2.61
+                          C18.43,10.12 17.9,18.7 12,22.99
+                          C6.1,18.7 5.56,10.12 5.56,2.61 Z
+                          M10.52,6.63
+                          L13.47,6.63 L13.47,8.64
+                          L15.48,8.64 L15.48,11.59
+                          L13.47,11.59 L13.47,13.61
+                          L10.52,13.61 L10.52,11.59
+                          L8.51,11.59 L8.51,8.64
+                          L10.52,8.64 Z" />
+</vector>
