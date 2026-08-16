@@ -15,6 +15,8 @@ import 'package:ohs_shield_tracker/shared/widgets/app_shell.dart';
 import 'package:ohs_shield_tracker/shared/widgets/skeleton.dart';
 import 'package:ohs_shield_tracker/shared/widgets/duotone_icon_badge.dart';
 import 'package:ohs_shield_tracker/shared/widgets/sync_status_badge.dart';
+import 'package:ohs_shield_tracker/core/utils/user_lookup.dart';
+import 'package:ohs_shield_tracker/features/capa/presentation/providers/capa_providers.dart';
 
 class HazardListScreen extends ConsumerWidget {
   const HazardListScreen({super.key});
@@ -112,13 +114,25 @@ class _HazardRow extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final syncStatus =
         ref.watch(recordSyncStatusProvider((type: SyncEntity.hazard, id: hazard.id))).valueOrNull;
+    final reporter = nameForUser(ref.watch(companyUsersProvider).valueOrNull, hazard.reporterId);
     return Card(
       child: ListTile(
         onTap: () => context.push(Routes.hazardDetail(hazard.id)),
         leading: DuotoneIconBadge(icon: hazardCategoryIcon(hazard.category), color: hazardRiskColor(hazard.riskLevel)),
         title: Text(hazard.title, maxLines: 1, overflow: TextOverflow.ellipsis),
-        subtitle: Text('${hazard.category.label} · ${hazard.status.label}',
-            style: Theme.of(context).textTheme.labelSmall,),
+        // Who reported it, appended when the name resolves. Omitted rather than
+        // shown blank while the roster loads, or when the reporter is outside
+        // this user's RLS-visible scope.
+        subtitle: Text(
+          [
+            hazard.category.label,
+            hazard.status.label,
+            if (reporter != null) reporter,
+          ].join(' · '),
+          style: Theme.of(context).textTheme.labelSmall,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
         trailing: Row(mainAxisSize: MainAxisSize.min, children: [
           if (syncStatus != null && syncStatus != SyncStatus.synced)
             Padding(padding: const EdgeInsets.only(right: 6), child: SyncBadge(status: syncStatus)),
