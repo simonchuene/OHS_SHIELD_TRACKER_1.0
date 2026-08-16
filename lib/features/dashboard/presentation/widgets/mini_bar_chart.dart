@@ -19,13 +19,23 @@ class MiniBarChart extends StatelessWidget {
       child: Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
         for (var i = 0; i < values.length; i++)
           Expanded(
-            child: Column(mainAxisAlignment: MainAxisAlignment.end, children: [
-              Text('${values[i]}', style: Theme.of(context).textTheme.labelSmall),
+            child: Column(children: [
+              Text('${values[i]}', style: Theme.of(context).textTheme.labelSmall, maxLines: 1),
               const SizedBox(height: 2),
-              Container(
-                margin: const EdgeInsets.symmetric(horizontal: 3),
-                height: (height - 34) * (values[i] / maxV),
-                decoration: BoxDecoration(color: color.withValues(alpha: 0.85), borderRadius: BorderRadius.circular(4)),
+              // The bar takes whatever is left after the two labels rather than
+              // a hardcoded (height - 34). That constant assumed 14px per label
+              // when labelSmall is 12pt on a ~16px line, overflowing by exactly
+              // 4px — and it would have drifted again with any type-scale change
+              // or a user's larger font setting.
+              Expanded(
+                child: FractionallySizedBox(
+                  alignment: Alignment.bottomCenter,
+                  heightFactor: (values[i] / maxV).clamp(0.0, 1.0),
+                  child: Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 3),
+                    decoration: BoxDecoration(color: color.withValues(alpha: 0.85), borderRadius: BorderRadius.circular(4)),
+                  ),
+                ),
               ),
               const SizedBox(height: 4),
               Text(i < labels.length ? labels[i] : '', style: Theme.of(context).textTheme.labelSmall, maxLines: 1, overflow: TextOverflow.ellipsis),
