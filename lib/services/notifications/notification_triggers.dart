@@ -13,6 +13,12 @@ abstract final class NotificationTrigger {
   static const riskAssessed = 'risk.assessed';
   static const capaAssigned = 'capa.assigned';
   static const capaOverdue = 'capa.overdue';
+
+  /// An owner has submitted their CAPA for verification — Safety Officer+ must
+  /// now check and close it. Added 2026-08-16 (Ledger §18); a deviation from the
+  /// seven names D7 fixed, named for the obligation it creates rather than the
+  /// event, matching `investigation.due` / `inspection.due`.
+  static const capaVerificationDue = 'capa.verification_due';
   static const investigationDue = 'investigation.due';
   static const inspectionDue = 'inspection.due';
 }

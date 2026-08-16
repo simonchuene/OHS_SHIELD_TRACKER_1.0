@@ -1,0 +1,25 @@
+-- ===========================================================================
+-- 0019  notification_trigger += 'capa_verification_due'
+-- ---------------------------------------------------------------------------
+-- When an owner submits a CAPA for verification (§17 / 0018 let them do this
+-- themselves), nobody was told. The action sits in Verification until a Safety
+-- Officer happens to notice it — the one step in the CAPA lifecycle with no
+-- signal to the people who must act on it.
+--
+-- 🔖 Deviation from D7. The Ledger's canonical trigger list (§3) has seven
+-- names, fixed at Prompt 1. This adds an eighth. Named for the convention the
+-- others use — `investigation.due`, `inspection.due` mean "someone must act" —
+-- rather than `capa.submitted`, which would describe the event instead of the
+-- obligation it creates.
+--
+-- Recipients are the default Safety Officer+ audience in `notify-fanout`, so no
+-- resolution branch is needed. §16's actor filter means the submitting owner is
+-- not notified about their own submission, including the case where the owner
+-- is themselves a Safety Officer.
+--
+-- Postgres 12+ permits ALTER TYPE ... ADD VALUE inside a transaction as long as
+-- the new value is not *used* in the same transaction. This migration only adds
+-- it; the first use is a later INSERT from the Edge Function.
+-- ===========================================================================
+
+alter type notification_trigger add value if not exists 'capa_verification_due';

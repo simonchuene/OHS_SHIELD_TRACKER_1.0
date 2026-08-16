@@ -28,6 +28,9 @@ const defaults: Record<string, { title: string; body: string; priority: string }
   risk_assessed: { title: 'Risk assessment updated', body: 'A hazard was assessed.', priority: 'normal' },
   capa_assigned: { title: 'CAPA assigned to you', body: 'You have a new corrective action.', priority: 'normal' },
   capa_overdue: { title: 'CAPA overdue', body: 'A corrective action is overdue.', priority: 'high' },
+  // Owner has finished and handed the action back; Safety Officer+ must verify.
+  // Falls through to the default SO+ audience — no recipient branch needed.
+  capa_verification_due: { title: 'CAPA ready for verification', body: 'A corrective action was submitted for verification.', priority: 'normal' },
   investigation_due: { title: 'Investigation due', body: 'An investigation needs progress.', priority: 'normal' },
   inspection_due: { title: 'Inspection due', body: 'An inspection is due.', priority: 'normal' },
 };

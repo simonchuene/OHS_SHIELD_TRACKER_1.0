@@ -151,7 +151,20 @@ class CapaController extends _$CapaController {
       if (to == CapaStatus.verification && notes != null && notes.isNotEmpty) 'completion_notes': notes,
       if (to == CapaStatus.closed) ...{'closed_at': DateTime.now().toIso8601String(), 'verified_by': user.id, 'verified_at': DateTime.now().toIso8601String()},
     };
-    return patch(capa, changes);
+    final ok = await patch(capa, changes);
+    // Handing work back is the one step with no signal to the people who must
+    // act on it: without this the CAPA sits in Verification until a Safety
+    // Officer happens to look. No recipientIds — the default Safety Officer+
+    // audience is exactly right, and §16's actor filter keeps the submitting
+    // owner from notifying themselves.
+    if (ok && to == CapaStatus.verification) {
+      ref.read(notificationTriggersProvider).fire(
+            NotificationTrigger.capaVerificationDue,
+            entityType: 'corrective_action',
+            entityId: capa.id,
+          );
+    }
+    return ok;
   }
 
   Future<bool> _hasEvidence(String capaId) async {
