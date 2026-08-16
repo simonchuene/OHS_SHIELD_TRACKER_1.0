@@ -381,7 +381,14 @@ Both `Build` and `Deploy Supabase` were *skipped*, not failed — they `needs:` 
 
 **`supabase/setup-cli` pinned to 2.114.0** (was `version: latest`). Run #2 died *inside the action itself*, and run #1 at `supabase start` — different steps, which is the signature of an unpinned dependency moving underneath you. An unpinned tool makes a job fail for reasons unrelated to the change under test, which is the opposite of what CI is for.
 
-**Not yet proven.** The `pub get` failure was diagnosed from the run comparison, not the logs — downloading job logs needs repo-admin auth. The hypothesis is that recent dependency pins (`share_plus ^12.0.2`, `flutter_launcher_icons ^0.14.1`) have SDK floors above the Dart 3.5 that ships with Flutter 3.24.5, so resolution fails outright. **The next CI run is the experiment**, not a confirmation.
+**Confirmed by run #3.** The version pin was the cause: `flutter pub get` and `build_runner` both pass on 3.44.6, having failed at the first step on 3.24.5. The failure moved two steps forward, to `flutter analyze`.
+
+**D-verify-1 — "analyze is clean" was never measured.** Every green analyze reported during this session came from a shell pipeline (`flutter analyze | tail`), whose `$?` is the **exit status of `tail`**, not of analyze. Run without a pipe, `flutter analyze` exited **1** on the nine deprecation infos, and had done all along. CI was right and the local reporting was wrong — a good argument for treating CI as the source of truth rather than a local shell. **When an exit code is the thing being asserted, do not pipe the command.**
+
+The nine were all genuine deprecations, now fixed (analyze: *No issues found*, exit 0):
+- **`RadioListTile` per-tile `groupValue`/`onChanged`** ×6 → a `RadioGroup` ancestor (in `widgets/`, re-exported by `material.dart`).
+- **`Supabase.anonKey`** → `publishableKey`. A rename; the value passed was already a publishable key, so the old parameter name was the misleading part.
+- **Riverpod `provider.stream`** ×2 → `connectivityStreamFactoryProvider`. Not a rename, and both obvious replacements are wrong: dropping the initial `checkConnectivity()` leaves consumers with **no value until connectivity changes** (sync engine idles, offline banner blank on a healthy connection), and `asBroadcastStream()` delivers that initial state only to whichever consumer subscribes first, leaving the other silently blind. An `async*` stream is single-subscription, so a cached instance would throw on the second listener. A **factory** — one fresh stream per consumer — is the only shape that works; documented at the provider so neither dead end gets retried.
 
 **Related, unfixed.** `pubspec.lock` is gitignored, so CI resolves dependencies fresh and has never validated the exact set running locally. Committing the lockfile would make CI reproduce the verified environment rather than approximate it — worth considering, and a larger decision than a version bump.
 
