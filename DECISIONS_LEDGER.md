@@ -325,6 +325,20 @@ Added `android/app/src/main/res/drawable/ic_stat_ohs_shield.xml` (vector, so no 
 
 Affects background/terminated notifications only; the foreground path is the in-app banner, which has no icon. `fcm.ts` still deliberately sends no `channel_id` — the app declares no channel.
 
+## 16. Self-Notification & Reporter Attribution (2026-08-16)
+
+**D-notif-1 — users were notified about their own actions.** Reported as: logging a hazard produced an in-app notification for the person who logged it. Correct by the rule, wrong as behaviour — `hazard.created`, `incident.created`, `risk.assessed` and `investigation.due` fan out to Safety Officer+ (§Notifications), so any SO/Manager/Admin reporting something was in their own audience.
+
+**Fix:** `notify-fanout` filters `callerId` out of `recipients`. Two placement points matter:
+- **After** recipient resolution but **before** the empty-list check, so removing the actor can never fall through to the default Safety Officer+ audience — the wrong order would have escalated a self-notification into a company-wide one.
+- It also covers **self-assignment**: a CAPA you assign to yourself is already in your Actions list.
+
+Suppresses only the notification. Audit rows, workflow state and other recipients are unaffected — a hazard you report still reaches your colleagues. Deployed (no app release required).
+
+**Reporter attribution.** The hazard list showed `category · status` with no indication of who raised it; the reporter was only discoverable by opening the record. Now appends the reporter's name via `nameForUser`, **omitted rather than blank** when the roster has not loaded or the reporter is outside RLS-visible scope. Capped to one line with ellipsis — three segments plus a full name overflows a phone width.
+
+**D-lang-1 (toolchain note).** The list change was first written with null-aware collection elements (`?expr`), which the installed Dart 3.12 accepts. It would not have compiled: a package's **language version comes from the pubspec SDK floor** (`>=3.5.0`), not the installed SDK, and `?expr` requires 3.9+. Worth remembering before reaching for a recent language feature — the analyzer catches it, but the reflex "the SDK supports it" is wrong here. Rewritten with collection-`if`.
+
 ## 7. Open Questions / Deviations Log
 - **OQ1:** Confirm `companies` table addition (D1) at Prompt 2A.
 - **OQ2:** Confirm typed-FK linkage vs. untyped polymorphic (D2) at Prompt 2A.
