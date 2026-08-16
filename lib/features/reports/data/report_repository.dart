@@ -94,9 +94,9 @@ class ReportRepository {
   }
 
   Future<(List<String>, List<List<String>>)> _capas(ReportFilters f) async {
-    final data = await _client.from('corrective_actions').select('description,priority,status,due_date').order('created_at', ascending: false);
-    final rows = [for (final r in data) [r['description'].toString(), r['priority'].toString(), r['status'].toString(), _d(r['due_date'] as String?)]];
-    return (['Description', 'Priority', 'Status', 'Due'], rows);
+    final data = await _client.from('corrective_actions').select('description,priority,status,due_date,completion_notes').order('created_at', ascending: false);
+    final rows = [for (final r in data) [r['description'].toString(), r['priority'].toString(), r['status'].toString(), _d(r['due_date'] as String?), (r['completion_notes'] ?? '').toString()]];
+    return (['Description', 'Priority', 'Status', 'Due', 'Work completed'], rows);
   }
 
   Future<(List<String>, List<List<String>>)> _inspections(ReportFilters f) async {

@@ -93,6 +93,12 @@ class _Body extends ConsumerWidget {
         title: Text(capa.dueDate == null ? 'No due date' : 'Due ${DateFormat.yMMMd().format(capa.dueDate!)}'),
         trailing: TextButton(onPressed: busy ? null : () => _setDueDate(context, ref), child: const Text('Set')),
       ),
+      if ((capa.completionNotes ?? '').trim().isNotEmpty) ...[
+        const SizedBox(height: 16),
+        Text('Work completed', style: Theme.of(context).textTheme.titleLarge),
+        const SizedBox(height: 4),
+        Text(capa.completionNotes!.trim(), style: Theme.of(context).textTheme.bodyMedium),
+      ],
       const SizedBox(height: 16),
       Text('Evidence', style: Theme.of(context).textTheme.titleLarge),
       const SizedBox(height: 8),
@@ -127,7 +133,7 @@ class _Body extends ConsumerWidget {
           minRank: CapaWorkflow.minRankFor(to),
           // A CAPA's owner may start work without Supervisor rank (Ledger §10,
           // RLS migration 0016). Null elsewhere, so the rank check applies.
-          permitted: _ownerMayStart(ref, capa, to) ? true : null,
+          permitted: _ownerMayAct(ref, capa, to) ? true : null,
           onPressed: busy ? null : () => _advance(context, ref, to),
           child: Text(CapaWorkflow.advanceLabel(capa.status) ?? 'Advance'),
         ),
@@ -195,18 +201,52 @@ class _Body extends ConsumerWidget {
     if (context.mounted) _snack(context, ref, ok, 'Due date set');
   }
 
-  /// The assigned owner may move their own CAPA Assigned -> In Progress without
-  /// Supervisor rank (Ledger §10; RLS 0016 grants the matching UPDATE). Verify
-  /// and Close still require Safety Officer+, so this only ever widens the one
-  /// transition.
-  bool _ownerMayStart(WidgetRef ref, CorrectiveAction capa, CapaStatus to) {
-    if (to != CapaStatus.inProgress) return false;
+  /// The assigned owner may run their own CAPA through the doing phase without
+  /// a rank: Assigned -> In Progress (Ledger §10, RLS 0016) and In Progress ->
+  /// Verification (§17, RLS 0018 — "I have finished, please check"). Closing
+  /// still requires Safety Officer+, so an owner can never verify or close
+  /// their own work.
+  bool _ownerMayAct(WidgetRef ref, CorrectiveAction capa, CapaStatus to) {
+    if (to != CapaStatus.inProgress && to != CapaStatus.verification) return false;
     final userId = ref.watch(currentUserProvider).valueOrNull?.id;
     return userId != null && capa.ownerId == userId;
   }
 
+  /// Prompt for the owner's account of the work when handing it back. Optional:
+  /// an empty note still submits, because blocking the handover on a text field
+  /// would push people to type "done" to get past it.
+  Future<String?> _askCompletionNotes(BuildContext context) async {
+    final controller = TextEditingController();
+    return showDialog<String?>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: const Text('Submit for verification'),
+        content: TextField(
+          controller: controller,
+          maxLines: 4,
+          autofocus: true,
+          decoration: const InputDecoration(
+            labelText: 'What was done?',
+            hintText: 'Describe the work completed (optional)',
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(c), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(c, controller.text.trim()), child: const Text('Submit')),
+        ],
+      ),
+    );
+  }
+
   Future<void> _advance(BuildContext context, WidgetRef ref, CapaStatus to) async {
-    final ok = await ref.read(capaControllerProvider.notifier).advance(capa, to);
+    String? notes;
+    if (to == CapaStatus.verification) {
+      notes = await _askCompletionNotes(context);
+      // Cancelled: abandon the transition entirely rather than submitting
+      // silently. An empty string means "submit without notes" and proceeds.
+      if (notes == null || !context.mounted) return;
+    }
+    final ok = await ref.read(capaControllerProvider.notifier).advance(capa, to, completionNotes: notes);
     if (context.mounted) _snack(context, ref, ok, to.label);
   }
 

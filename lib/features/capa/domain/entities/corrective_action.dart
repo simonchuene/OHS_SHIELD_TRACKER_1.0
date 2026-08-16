@@ -26,6 +26,10 @@ class CorrectiveAction with _$CorrectiveAction {
     String? inspectionItemId,
     String? verifiedBy,
     DateTime? verifiedAt,
+    /// The owner's account of the work performed, captured when submitting
+    /// for verification. Distinct from [verificationNotes], which is the
+    /// verifier's rationale for accepting it.
+    String? completionNotes,
     String? verificationNotes,
     DateTime? closedAt,
     @Default(0) int version,

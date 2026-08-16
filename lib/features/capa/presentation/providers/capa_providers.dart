@@ -124,7 +124,10 @@ class CapaController extends _$CapaController {
     }, err: _errBool,);
   }
 
-  Future<bool> advance(CorrectiveAction capa, CapaStatus to) async {
+  /// [completionNotes] is written alongside the status when the owner submits
+  /// for verification — the record of what was actually done. Ignored for other
+  /// transitions, which have their own evidence (verification_notes on close).
+  Future<bool> advance(CorrectiveAction capa, CapaStatus to, {String? completionNotes}) async {
     final rank = ref.read(authRoleRankProvider) ?? 0;
     final userId = ref.read(currentUserProvider).valueOrNull?.id;
     final hasEvidence = to == CapaStatus.closed ? await _hasEvidence(capa.id) : false;
@@ -142,8 +145,10 @@ class CapaController extends _$CapaController {
       return _fail(const NetworkFailure('Closing needs a connection to verify evidence.'));
     }
     final user = ref.read(currentUserProvider).valueOrNull!;
+    final notes = completionNotes?.trim();
     final changes = <String, dynamic>{
       'status': to.dbValue,
+      if (to == CapaStatus.verification && notes != null && notes.isNotEmpty) 'completion_notes': notes,
       if (to == CapaStatus.closed) ...{'closed_at': DateTime.now().toIso8601String(), 'verified_by': user.id, 'verified_at': DateTime.now().toIso8601String()},
     };
     return patch(capa, changes);
