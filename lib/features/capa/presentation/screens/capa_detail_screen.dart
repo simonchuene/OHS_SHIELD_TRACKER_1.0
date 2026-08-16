@@ -12,8 +12,13 @@ import 'package:ohs_shield_tracker/features/capa/domain/capa_workflow.dart';
 import 'package:ohs_shield_tracker/features/capa/domain/entities/capa_enums.dart';
 import 'package:ohs_shield_tracker/features/capa/domain/entities/corrective_action.dart';
 import 'package:ohs_shield_tracker/features/capa/presentation/providers/capa_providers.dart';
+import 'package:ohs_shield_tracker/features/auth/presentation/providers/auth_providers.dart';
 import 'package:ohs_shield_tracker/features/capa/presentation/widgets/capa_ui.dart';
+import 'package:ohs_shield_tracker/shared/widgets/rank_gated_action.dart';
 import 'package:ohs_shield_tracker/shared/widgets/skeleton.dart';
+import 'package:ohs_shield_tracker/shared/widgets/select_one_dialog.dart';
+import 'package:ohs_shield_tracker/shared/widgets/status_stepper.dart';
+import 'package:ohs_shield_tracker/core/utils/user_lookup.dart';
 
 class CapaDetailScreen extends ConsumerWidget {
   const CapaDetailScreen({required this.capaId, super.key});
@@ -27,7 +32,14 @@ class CapaDetailScreen extends ConsumerWidget {
       body: async.when(
         loading: () => const SkeletonDetail(),
         error: (e, _) => Center(child: Text('Could not load: $e')),
-        data: (capa) => _Body(capa: capa),
+        // Pull-to-refresh, as the hazard detail already has. A CAPA opened from
+        // a notification can be read before the assigning device's outbox has
+        // synced, and a FutureProvider will not re-fetch on its own — leaving a
+        // stale record with no way to reload short of leaving the screen.
+        data: (capa) => RefreshIndicator(
+          onRefresh: () async => ref.invalidate(capaDetailProvider(capaId)),
+          child: _Body(capa: capa),
+        ),
       ),
     );
   }
@@ -69,7 +81,10 @@ class _Body extends ConsumerWidget {
       ListTile(
         contentPadding: EdgeInsets.zero,
         leading: const Icon(Icons.person_outline),
-        title: Text(capa.hasOwner ? 'Owner assigned' : 'Unassigned'),
+        // Show who holds it, not just that someone does. Falls back to a neutral
+        // label while the company roster loads, or if the owner is outside this
+        // user's RLS-visible scope so their name cannot be resolved.
+        title: Text(_ownerLabel(ref)),
         trailing: TextButton(onPressed: busy ? null : () => _assignOwner(context, ref), child: const Text('Assign')),
       ),
       ListTile(
@@ -83,20 +98,40 @@ class _Body extends ConsumerWidget {
       const SizedBox(height: 8),
       AttachmentField(ownerType: AttachmentOwnerType.correctiveAction, ownerId: capa.id, title: ''),
       const SizedBox(height: 16),
-      if (to != null)
-        SizedBox(
-          width: double.infinity,
-          child: ElevatedButton(
-            onPressed: busy ? null : () => _advance(context, ref, to),
-            child: Text(CapaWorkflow.advanceLabel(capa.status) ?? 'Advance'),
+      if (to != null) ...[
+        Text('Workflow', style: Theme.of(context).textTheme.titleLarge),
+        const SizedBox(height: 8),
+        StatusStepper(
+          labels: [for (final s in CapaStatus.values) s.label],
+          currentIndex: CapaStatus.values.indexOf(capa.status),
+        ),
+        const SizedBox(height: 12),
+        // State the CAPA's current position and where the button moves it. The
+        // button names the *next* action, so on its own it reads as the state:
+        // tapping "Start work" and immediately seeing "Submit for verification"
+        // looks like a step was skipped rather than completed. Mirrors the
+        // hazard screen, which already shows a "Next step" line.
+        Row(children: [
+          Text('Status: ', style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppColors.secondaryText)),
+          Text(capa.status.label, style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700)),
+        ],),
+        Text('Next: ${to.label}', style: Theme.of(context).textTheme.bodyMedium),
+        if (to == CapaStatus.closed)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text('Verify & close requires Safety Officer+ and verification evidence.',
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(color: AppColors.secondaryText),),
           ),
+        const SizedBox(height: 12),
+        RankGatedAction(
+          minRank: CapaWorkflow.minRankFor(to),
+          // A CAPA's owner may start work without Supervisor rank (Ledger §10,
+          // RLS migration 0016). Null elsewhere, so the rank check applies.
+          permitted: _ownerMayStart(ref, capa, to) ? true : null,
+          onPressed: busy ? null : () => _advance(context, ref, to),
+          child: Text(CapaWorkflow.advanceLabel(capa.status) ?? 'Advance'),
         ),
-      if (to == CapaStatus.closed)
-        Padding(
-          padding: const EdgeInsets.only(top: 8),
-          child: Text('Verify & close requires Safety Officer+ and verification evidence.',
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(color: AppColors.secondaryText),),
-        ),
+      ],
     ],);
   }
 
@@ -116,17 +151,40 @@ class _Body extends ConsumerWidget {
         _ => 'source',
       };
 
+  /// `Assigned: <name>` when the owner resolves, otherwise a neutral label. The
+  /// CAPA row carries only `owner_id`, so the name comes from the company roster
+  /// the assign picker already loads.
+  String _ownerLabel(WidgetRef ref) {
+    if (!capa.hasOwner) return 'Unassigned';
+    final name = nameForUser(ref.watch(companyUsersProvider).valueOrNull, capa.ownerId);
+    return name == null ? 'Assigned' : 'Assigned: $name';
+  }
+
   Future<void> _assignOwner(BuildContext context, WidgetRef ref) async {
     final users = await ref.read(companyUsersProvider.future);
     if (!context.mounted) return;
-    final chosen = await showDialog<String?>(
+    final chosen = await showSelectOneDialog<String>(
       context: context,
-      builder: (c) => SimpleDialog(title: const Text('Assign owner'), children: [
-        for (final u in users) SimpleDialogOption(onPressed: () => Navigator.pop(c, u.id), child: Text(u.name)),
-      ],),
+      title: 'Assign owner',
+      confirmLabel: 'Assign',
+      // Pre-select the current owner so reopening the picker shows who holds it,
+      // and confirming without changing anything is a no-op rather than a
+      // surprise reassignment.
+      initialValue: capa.ownerId,
+      options: [for (final u in users) (value: u.id, label: u.name)],
+      emptyMessage: 'No users available to assign.',
     );
-    if (chosen == null) return;
-    final ok = await ref.read(capaControllerProvider.notifier).patch(capa, {'owner_id': chosen});
+    if (chosen == null || chosen == capa.ownerId) return;
+    final changes = <String, dynamic>{'owner_id': chosen};
+    // Giving a Created CAPA an owner *is* the Assign step, so move the status
+    // too — `create` already does this (`status: ownerId != null ? assigned :
+    // created`), but this path only ever wrote owner_id. The record stayed in
+    // Created, so the owner opened it to a greyed-out "Assign" button (that step
+    // needs Supervisor rank) and could never reach "Start work".
+    if (capa.status == CapaStatus.created) {
+      changes['status'] = CapaStatus.assigned.dbValue;
+    }
+    final ok = await ref.read(capaControllerProvider.notifier).patch(capa, changes);
     if (context.mounted) _snack(context, ref, ok, 'Owner assigned');
   }
 
@@ -135,6 +193,16 @@ class _Body extends ConsumerWidget {
     if (d == null) return;
     final ok = await ref.read(capaControllerProvider.notifier).patch(capa, {'due_date': d.toIso8601String().substring(0, 10)});
     if (context.mounted) _snack(context, ref, ok, 'Due date set');
+  }
+
+  /// The assigned owner may move their own CAPA Assigned -> In Progress without
+  /// Supervisor rank (Ledger §10; RLS 0016 grants the matching UPDATE). Verify
+  /// and Close still require Safety Officer+, so this only ever widens the one
+  /// transition.
+  bool _ownerMayStart(WidgetRef ref, CorrectiveAction capa, CapaStatus to) {
+    if (to != CapaStatus.inProgress) return false;
+    final userId = ref.watch(currentUserProvider).valueOrNull?.id;
+    return userId != null && capa.ownerId == userId;
   }
 
   Future<void> _advance(BuildContext context, WidgetRef ref, CapaStatus to) async {
