@@ -36,7 +36,7 @@
 ## 3. Cross-Cutting Contracts (set in Prompts 1, 6, 15)
 - **Attachment service API surface (Prompt 6):** `AttachmentRepository` / `AttachmentUseCases` — `upload({ownerType, ownerId, media/localPath, attachmentId?})` · `listForOwner(type,id)` · `listVersions(attachmentId)` · `preview(attachmentId,{versionId})→signedUrl` · `download(attachmentId,{versionId})→bytes` · `delete(attachmentId)` (logical). Version history: re-upload flags prior versions inactive + adds vN+1; never deleted. Storage path `<company_id>/<owner_type>/<owner_id>/<version_uuid>.<ext>`.
 - **Reusable camera + GPS capture widget:** `AttachmentField` (`lib/features/attachments/presentation/widgets/attachment_field.dart`) backed by `MediaCaptureService` (camera/gallery/PDF + best-effort GPS). Offline: `PendingUploads` Drift table (schema v2) + `AttachmentUploadQueue` (D5 backoff).
-- **Notification trigger hook names (stubbed 8–12 incl. 8A, consolidated 15):** (D7) `hazard.created` · `incident.created` · `risk.assessed` · `capa.assigned` · `capa.overdue` · `investigation.due` · `inspection.due`
+- **Notification trigger hook names (stubbed 8–12 incl. 8A, consolidated 15):** (D7) `hazard.created` · `incident.created` · `risk.assessed` · `capa.assigned` · `capa.overdue` · `investigation.due` · `inspection.due` **(+ `capa.verification_due` added 2026-08-16 — see §18.)**
 - **Audit event helper signature:** (D6, conceptual) `recordAudit(entityType, entityId, action, before, after)` — actor + company derived from session/RLS context, never passed by client. IMPLEMENTED server-side as SECURITY DEFINER trigger `audit_row_change(entity_type)` (0012) attached per table (hazards done; others attach in their prompts). Actions: `<entity>.created` / `.updated` / `.status_changed` / `.deleted`.
 - **Feature module conventions (from Prompt 7):** each business module lives at `lib/features/<name>` with `{domain, data, application, presentation}`; offline-writable creates/updates via `OfflineMutationService`; list/detail merge server + `AppDatabase.cachedByType(entity)`; per-record `SyncBadge` (`lib/shared/widgets/sync_status_badge.dart`); shared `RiskBand` at `lib/shared/domain/risk_band.dart`.
 - **Deployment (Prompt 18):** `docs/18_deployment.md`; CI/CD `.github/workflows/ci.yml` (analyze/test/pgTAP → build AAB → `db push` + deploy 4 Edge Functions on tags); 4 envs = isolated Supabase + Firebase projects; config via `--dart-define-from-file` (`config/env/*.json`, gitignored); forward-only migrations + roll-forward recovery; first company/admin bootstrapped out-of-band via service role at go-live.
@@ -356,6 +356,20 @@ Asked for: let people record what they did when finishing assigned work, and sur
 **A test caught the policy change.** `capa_workflow_test.dart` asserted *"owner exception does not extend past In Progress"* — exactly the rule being moved — and failed. Split into two rather than flipped: one covering the new allowance (and that a **non-owner** of the same rank still cannot), one asserting the owner can **never** close even with verification evidence present. The original test was really guarding separation of duties; only its boundary moved, so deleting it and keeping the happy path would have dropped the guard that stops an owner signing off their own work. **When a deliberate change breaks a test, ask what principle it was protecting before rewriting it — the principle usually survives the change.**
 
 **Applied via `supabase db push`** — the first real use since §13's `migration repair`, and the proof it worked: the dry run listed only 0018 rather than trying to replay 0001 onward.
+
+## 18. `capa.verification_due` — the Missing Handover Signal (2026-08-16)
+
+Submitting a CAPA for verification told nobody. §17/0018 let the owner hand work back themselves, which made the gap sharper: the action moved to *Verification* and sat there until a Safety Officer happened to look at the board. It was the **only step in the CAPA lifecycle with no signal to the people who must act on it** — hazard/incident creation, risk assessment, assignment and overdue all notify; the handover did not.
+
+**🔖 Deviation from D7 — an eighth trigger.** The canonical list (§3) was fixed at seven names in Prompt 1. `capa.verification_due` is added deliberately, recorded here rather than quietly extending a locked set. Migration **0019** adds the matching `notification_trigger` enum value.
+
+**Naming.** `capa.verification_due`, not `capa.submitted`. The existing convention — `investigation.due`, `inspection.due` — names the **obligation created**, not the event that occurred. A Safety Officer cares that something needs verifying, not that a button was pressed. Keeping the convention means the enum still reads as a list of things owed rather than a mixed log.
+
+**Recipients need no branch.** It falls through to the default Safety Officer+ audience, which is exactly the right set. §16's actor filter composes with it for free: a Safety Officer who owns *and* submits their own CAPA is not notified about their own submission. Two independent rules meeting correctly without a special case is worth noting — the alternative would have been a `capa.assigned`-style explicit recipient list.
+
+**Not subject to the §12 outbox race.** `capa.assigned` needed explicit `recipientIds` because the server had to read the CAPA row to find the owner, and that row may not have synced yet. Here the audience comes from a role query against `user_roles`, which is independent of the CAPA — so firing immediately after the local patch is safe.
+
+**Postgres note.** `ALTER TYPE ... ADD VALUE` is permitted inside a transaction on PG 12+ provided the new value is not *used* in the same transaction. The migration only adds it; first use is a later INSERT from the Edge Function.
 
 ## 7. Open Questions / Deviations Log
 - **OQ1:** Confirm `companies` table addition (D1) at Prompt 2A.
