@@ -73,6 +73,17 @@ jobs:
       - run: supabase link --project-ref ${{ secrets.SUPABASE_PROJECT_REF_PROD }}
       - run: supabase db push        # forward-only migrations
       - run: supabase functions deploy user-admin workflow-transition inspection-item-fail notify-fanout
-      # Push credential / service-role are set as Supabase function secrets out-of-band:
-      #   supabase secrets set FIREBASE_SERVICE_ACCOUNT="$(cat service-account.json)"  (per environment)
+      # notify-sweep is invoked by pg_cron (migration 0017), not by the app, so it
+      # has no user JWT and cannot use the verify_jwt=true convention. It deploys
+      # separately with --no-verify-jwt and is gated on the SWEEP_SECRET header
+      # instead; it fails closed (403) until that secret is set.
+      - run: supabase functions deploy notify-sweep --no-verify-jwt
+      # Function secrets are set out-of-band, per environment:
+      #   supabase secrets set FIREBASE_SERVICE_ACCOUNT="$(cat service-account.json)"
+      #   supabase secrets set SWEEP_SECRET=<value>
       # FCM HTTP v1 — the legacy FCM_SERVER_KEY was retired by Google in 2024.
+      #
+      # The sweep also needs its caller configured in Supabase Vault on the target
+      # project (hosted Supabase forbids `alter database ... set`):
+      #   select vault.create_secret('https://<ref>.supabase.co/functions/v1/notify-sweep', 'sweep_url');
+      #   select vault.create_secret('<same value as SWEEP_SECRET>', 'sweep_secret');
