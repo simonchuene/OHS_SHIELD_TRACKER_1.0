@@ -13,6 +13,10 @@ import 'package:ohs_shield_tracker/features/investigations/presentation/provider
 import 'package:ohs_shield_tracker/features/investigations/presentation/widgets/fishbone_editor.dart';
 import 'package:ohs_shield_tracker/features/investigations/presentation/widgets/five_whys_editor.dart';
 import 'package:ohs_shield_tracker/features/investigations/presentation/widgets/investigation_timeline.dart';
+import 'package:ohs_shield_tracker/shared/widgets/rank_gated_action.dart';
+import 'package:ohs_shield_tracker/shared/widgets/status_stepper.dart';
+import 'package:ohs_shield_tracker/core/utils/user_lookup.dart';
+import 'package:ohs_shield_tracker/features/capa/presentation/providers/capa_providers.dart';
 
 class InvestigationDetailScreen extends ConsumerWidget {
   const InvestigationDetailScreen({required this.investigationId, super.key});
@@ -135,10 +139,22 @@ class _EditorState extends ConsumerState<_Editor> {
 
   void _snack(String m) => ScaffoldMessenger.of(context)..hideCurrentSnackBar()..showSnackBar(SnackBar(content: Text(m)));
 
+  /// `Assigned: <name>` for the investigator. Falls back to a bare "Assigned"
+  /// when the roster has not loaded or the user is outside RLS-visible scope —
+  /// `investigator_id` is non-null, so there is always someone assigned.
+  String _assigneeLabel(WidgetRef ref) {
+    final name = nameForUser(ref.watch(companyUsersProvider).valueOrNull, inv.investigatorId);
+    return name == null ? 'Assigned' : 'Assigned: $name';
+  }
+
   @override
   Widget build(BuildContext context) {
     final busy = ref.watch(investigationControllerProvider).isLoading;
-    final canEdit = !inv.isCompleted;
+    // Conduct Investigation = Supervisor+ (RBAC matrix). Folded into canEdit so
+    // the analysis fields are read-only for lower ranks too, not just the
+    // buttons — otherwise a user can type freely and only be refused on save.
+    final mayAct = hasMinRank(ref, InvestigationWorkflow.minRank());
+    final canEdit = !inv.isCompleted && mayAct;
     final to = InvestigationWorkflow.next(inv.status);
 
     return ListView(padding: const EdgeInsets.all(16), children: [
@@ -146,6 +162,12 @@ class _EditorState extends ConsumerState<_Editor> {
         Expanded(child: Text('Origin: ${inv.originatesFromIncident ? 'Incident' : 'Hazard'}', style: Theme.of(context).textTheme.bodyMedium)),
         Chip(label: Text(inv.status.label)),
       ],),
+      // `investigator_id` is this record's assignee, so it takes the same
+      // "Assigned: <name>" wording as a CAPA's owner.
+      Text(
+        _assigneeLabel(ref),
+        style: Theme.of(context).textTheme.bodyMedium,
+      ),
       const SizedBox(height: 12),
       DropdownButtonFormField<InvestigationMethod>(
         initialValue: _method,
@@ -178,11 +200,35 @@ class _EditorState extends ConsumerState<_Editor> {
       const SizedBox(height: 8),
       InvestigationTimeline(investigation: inv),
       const SizedBox(height: 8),
+      // Conduct Investigation and Create/Assign CAPA are both Supervisor+ in the
+      // RBAC matrix. These sit in a Wrap rather than being full-width, so they
+      // use `hasMinRank` directly with a shared denial note beneath.
+      Text('Workflow', style: Theme.of(context).textTheme.titleLarge),
+      const SizedBox(height: 8),
+      StatusStepper(
+        labels: [for (final s in InvestigationStatus.values) s.label],
+        currentIndex: InvestigationStatus.values.indexOf(inv.status),
+      ),
+      const SizedBox(height: 12),
+      Row(children: [
+        Text('Status: ', style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppColors.secondaryText)),
+        Text(inv.status.label, style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700)),
+      ],),
+      if (to != null) Text('Next: ${to.label}', style: Theme.of(context).textTheme.bodyMedium),
+      const SizedBox(height: 12),
       Wrap(spacing: 8, runSpacing: 8, children: [
         if (to != null)
-          ElevatedButton(onPressed: busy ? null : _advance, child: Text(InvestigationWorkflow.advanceLabel(inv.status) ?? 'Advance')),
-        OutlinedButton.icon(onPressed: busy ? null : _generateCapa, icon: const Icon(Icons.add_task_rounded, size: 18), label: const Text('Add CAPA')),
+          ElevatedButton(
+            onPressed: (busy || !mayAct) ? null : _advance,
+            child: Text(InvestigationWorkflow.advanceLabel(inv.status) ?? 'Advance'),
+          ),
+        OutlinedButton.icon(
+          onPressed: (busy || !mayAct) ? null : _generateCapa,
+          icon: const Icon(Icons.add_task_rounded, size: 18),
+          label: const Text('Add CAPA'),
+        ),
       ],),
+      if (!mayAct) const RoleDeniedNote(),
       if (to == InvestigationStatus.completed)
         Padding(
           padding: const EdgeInsets.only(top: 8),

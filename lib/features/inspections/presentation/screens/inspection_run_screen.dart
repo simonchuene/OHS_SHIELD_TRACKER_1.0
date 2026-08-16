@@ -10,6 +10,9 @@ import 'package:ohs_shield_tracker/features/inspections/domain/entities/inspecti
 import 'package:ohs_shield_tracker/features/inspections/domain/entities/inspection_enums.dart';
 import 'package:ohs_shield_tracker/features/inspections/domain/inspection_scoring.dart';
 import 'package:ohs_shield_tracker/features/inspections/presentation/providers/inspection_providers.dart';
+import 'package:ohs_shield_tracker/shared/widgets/rank_gated_action.dart';
+import 'package:ohs_shield_tracker/features/auth/domain/entities/app_role.dart';
+import 'package:ohs_shield_tracker/shared/widgets/status_stepper.dart';
 
 /// Mobile inspection UX — run the checklist, mark each item, then submit (which
 /// auto-creates a hazard + CAPA for every failed item).
@@ -54,6 +57,11 @@ class _Body extends ConsumerWidget {
             if (inspection.score != null) Text('${inspection.score!.toStringAsFixed(0)}%', style: const TextStyle(fontWeight: FontWeight.w800)),
           ],),
           const SizedBox(height: 8),
+          StatusStepper(
+            labels: [for (final s in InspectionStatus.values) s.label],
+            currentIndex: InspectionStatus.values.indexOf(inspection.status),
+          ),
+          const SizedBox(height: 8),
           for (final item in inspection.items) _ItemRow(inspection: inspection, item: item, readOnly: readOnly),
           const SizedBox(height: 16),
           Text('Photos', style: Theme.of(context).textTheme.titleLarge),
@@ -65,14 +73,15 @@ class _Body extends ConsumerWidget {
         SafeArea(
           child: Padding(
             padding: const EdgeInsets.all(16),
-            child: SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: (busy || !allAnswered) ? null : () => _submit(context, ref),
-                child: busy
-                    ? const SizedBox(height: 22, width: 22, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                    : Text(allAnswered ? 'Submit inspection' : 'Answer all items to submit'),
-              ),
+            // Conduct Inspections = Supervisor+ (RBAC matrix). The inspection
+            // domain carries no rank constant of its own, unlike the hazard /
+            // incident / CAPA / investigation workflows.
+            child: RankGatedAction(
+              minRank: AppRole.supervisor.rank,
+              onPressed: (busy || !allAnswered) ? null : () => _submit(context, ref),
+              child: busy
+                  ? const SizedBox(height: 22, width: 22, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : Text(allAnswered ? 'Submit inspection' : 'Answer all items to submit'),
             ),
           ),
         ),

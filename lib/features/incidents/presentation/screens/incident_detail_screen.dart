@@ -14,6 +14,11 @@ import 'package:ohs_shield_tracker/features/incidents/domain/entities/incident_e
 import 'package:ohs_shield_tracker/features/incidents/domain/incident_workflow.dart';
 import 'package:ohs_shield_tracker/features/incidents/presentation/providers/incident_providers.dart';
 import 'package:ohs_shield_tracker/features/incidents/presentation/widgets/incident_ui.dart';
+import 'package:ohs_shield_tracker/shared/widgets/rank_gated_action.dart';
+import 'package:ohs_shield_tracker/shared/widgets/select_one_dialog.dart';
+import 'package:ohs_shield_tracker/shared/widgets/status_stepper.dart';
+import 'package:ohs_shield_tracker/core/utils/user_lookup.dart';
+import 'package:ohs_shield_tracker/features/capa/presentation/providers/capa_providers.dart';
 
 class IncidentDetailScreen extends ConsumerWidget {
   const IncidentDetailScreen({required this.incidentId, super.key});
@@ -37,6 +42,12 @@ class IncidentDetailScreen extends ConsumerWidget {
             const SizedBox(height: 8),
             _kv('Occurred', DateFormat.yMMMd().add_jm().format(i.occurredAt.local)),
             _kv('Status', i.status.label),
+            // Deliberately "Reported by", not "Assigned": incidents have no
+            // assignee column. `reporter_id` is who raised it, and labelling
+            // that as an assignment would imply an ownership the record does
+            // not carry. Work on an incident is tracked through its linked
+            // investigation and CAPAs, which do have owners.
+            _kv('Reported by', _reporterName(ref, i) ?? '—'),
             if (i.description != null) _kv('Description', i.description!),
             if (i.locationText != null) _kv('Location', i.locationText!),
             if (i.isLinkedToHazard) _kv('Linked hazard', i.sourceHazardId!),
@@ -60,6 +71,9 @@ class IncidentDetailScreen extends ConsumerWidget {
           Expanded(child: Text(v)),
         ],),
       );
+
+  String? _reporterName(WidgetRef ref, Incident incident) =>
+      nameForUser(ref.watch(companyUsersProvider).valueOrNull, incident.reporterId);
 }
 
 class _Workflow extends ConsumerWidget {
@@ -72,32 +86,36 @@ class _Workflow extends ConsumerWidget {
     }
     final to = IncidentWorkflow.next(incident.status);
     if (to == null) return const SizedBox.shrink();
-    final rank = ref.watch(authRoleRankProvider) ?? 0;
-    final permitted = rank >= IncidentWorkflow.minRankFor(to);
     final busy = ref.watch(incidentActionControllerProvider).isLoading;
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Text('Workflow', style: Theme.of(context).textTheme.titleLarge),
       const SizedBox(height: 8),
+      StatusStepper(
+        labels: [for (final s in IncidentStatus.values) s.label],
+        currentIndex: IncidentStatus.values.indexOf(incident.status),
+      ),
+      const SizedBox(height: 12),
+      Row(children: [
+        Text('Status: ', style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppColors.secondaryText)),
+        Text(incident.status.label, style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700)),
+      ],),
       Text('Next: ${to.label}'),
       if (to == IncidentStatus.closed)
         const Padding(padding: EdgeInsets.only(top: 4), child: Text('Closing needs verification evidence and all corrective actions closed.', style: TextStyle(fontSize: 11, color: AppColors.secondaryText))),
       const SizedBox(height: 12),
-      SizedBox(
-        width: double.infinity,
-        child: ElevatedButton(
-          onPressed: (!permitted || busy) ? null : () async {
-            final ok = await ref.read(incidentActionControllerProvider.notifier).advance(incident);
-            if (context.mounted && !ok) {
-              final f = ref.read(incidentActionControllerProvider).error;
-              ScaffoldMessenger.of(context)
-                ..hideCurrentSnackBar()
-                ..showSnackBar(SnackBar(content: Text(f is Failure ? f.message : 'Could not advance')));
-            }
-          },
-          child: Text(IncidentWorkflow.advanceLabel(incident.status) ?? 'Advance'),
-        ),
+      RankGatedAction(
+        minRank: IncidentWorkflow.minRankFor(to),
+        onPressed: busy ? null : () async {
+          final ok = await ref.read(incidentActionControllerProvider.notifier).advance(incident);
+          if (context.mounted && !ok) {
+            final f = ref.read(incidentActionControllerProvider).error;
+            ScaffoldMessenger.of(context)
+              ..hideCurrentSnackBar()
+              ..showSnackBar(SnackBar(content: Text(f is Failure ? f.message : 'Could not advance')));
+          }
+        },
+        child: Text(IncidentWorkflow.advanceLabel(incident.status) ?? 'Advance'),
       ),
-      if (!permitted) const Padding(padding: EdgeInsets.only(top: 6), child: Text('Your role cannot perform this step.', style: TextStyle(fontSize: 11, color: AppColors.secondaryText))),
     ],);
   }
 }
@@ -126,13 +144,13 @@ class _Linkage extends ConsumerWidget {
   Future<void> _linkHazard(BuildContext context, WidgetRef ref) async {
     final hazards = await ref.read(hazardListProvider.future);
     if (!context.mounted) return;
-    final chosen = await showDialog<String?>(
+    final chosen = await showSelectOneDialog<String>(
       context: context,
-      builder: (c) => SimpleDialog(title: const Text('Link to hazard'), children: [
-        if (hazards.isEmpty) const Padding(padding: EdgeInsets.all(16), child: Text('No hazards available')),
-        for (final h in hazards.take(20))
-          SimpleDialogOption(onPressed: () => Navigator.pop(c, h.id), child: Text(h.title, maxLines: 1, overflow: TextOverflow.ellipsis)),
-      ],),
+      title: 'Link to hazard',
+      confirmLabel: 'Link',
+      initialValue: incident.sourceHazardId,
+      options: [for (final h in hazards.take(20)) (value: h.id, label: h.title)],
+      emptyMessage: 'No hazards available.',
     );
     if (chosen == null || !context.mounted) return;
     final ok = await ref.read(incidentActionControllerProvider.notifier).linkToHazard(incident, chosen);

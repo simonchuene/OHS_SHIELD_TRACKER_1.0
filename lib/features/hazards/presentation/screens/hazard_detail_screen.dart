@@ -24,6 +24,8 @@ import 'package:ohs_shield_tracker/services/sync/sync_models.dart';
 import 'package:ohs_shield_tracker/services/sync/sync_providers.dart';
 import 'package:ohs_shield_tracker/shared/widgets/skeleton.dart';
 import 'package:ohs_shield_tracker/shared/widgets/sync_status_badge.dart';
+import 'package:ohs_shield_tracker/shared/widgets/rank_gated_action.dart';
+import 'package:ohs_shield_tracker/shared/widgets/status_stepper.dart';
 
 class HazardDetailScreen extends ConsumerWidget {
   const HazardDetailScreen({required this.hazardId, super.key});
@@ -54,7 +56,10 @@ class HazardDetailScreen extends ConsumerWidget {
               _SyncLine(hazardId: h.id),
             ],),
             const SizedBox(height: 16),
-            _StatusStepper(status: h.status),
+            StatusStepper(
+              labels: [for (final s in HazardStatus.values) s.label],
+              currentIndex: HazardStatus.values.indexOf(h.status),
+            ),
             const SizedBox(height: 16),
             _Section(title: 'Details', child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               _kv('Category', h.category.label),
@@ -102,28 +107,6 @@ class _SyncLine extends ConsumerWidget {
   }
 }
 
-class _StatusStepper extends StatelessWidget {
-  const _StatusStepper({required this.status});
-  final HazardStatus status;
-  @override
-  Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(children: [
-        for (final s in HazardStatus.values) ...[
-          Icon(
-            s.step <= status.step ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded,
-            size: 16,
-            color: s.step <= status.step ? AppColors.primaryGreen : AppColors.secondaryText,
-          ),
-          const SizedBox(width: 4),
-          Text(s.label, style: TextStyle(fontSize: 11, color: s == status ? context.primaryTextColor : AppColors.secondaryText)),
-          if (s != HazardStatus.closed) const Padding(padding: EdgeInsets.symmetric(horizontal: 6), child: Text('›', style: TextStyle(color: AppColors.secondaryText))),
-        ],
-      ],),
-    );
-  }
-}
 
 class _WorkflowActions extends ConsumerWidget {
   const _WorkflowActions({required this.hazard});
@@ -144,8 +127,6 @@ class _WorkflowActions extends ConsumerWidget {
 
     final to = HazardWorkflow.next(hazard.status);
     if (to == null) return const SizedBox.shrink();
-    final rank = ref.watch(authRoleRankProvider) ?? 0;
-    final permitted = rank >= HazardWorkflow.minRankFor(to);
     final busy = ref.watch(hazardWorkflowControllerProvider).isLoading;
     final label = HazardWorkflow.advanceLabel(hazard.status) ?? 'Advance';
 
@@ -160,21 +141,13 @@ class _WorkflowActions extends ConsumerWidget {
                 style: Theme.of(context).textTheme.labelSmall?.copyWith(color: AppColors.secondaryText),),
           ),
         const SizedBox(height: 12),
-        SizedBox(
-          width: double.infinity,
-          child: ElevatedButton(
-            onPressed: (!permitted || busy) ? null : () => _advance(context, ref),
-            child: busy
-                ? const SizedBox(height: 22, width: 22, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                : Text(label),
-          ),
+        RankGatedAction(
+          minRank: HazardWorkflow.minRankFor(to),
+          onPressed: busy ? null : () => _advance(context, ref),
+          child: busy
+              ? const SizedBox(height: 22, width: 22, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+              : Text(label),
         ),
-        if (!permitted)
-          Padding(
-            padding: const EdgeInsets.only(top: 6),
-            child: Text('Your role cannot perform this step.',
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(color: AppColors.secondaryText),),
-          ),
       ],),
     );
   }
