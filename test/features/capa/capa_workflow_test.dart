@@ -47,11 +47,29 @@ void main() {
     expect(nonOwner.allowed, isFalse);
   });
 
-  test('owner exception does not extend past In Progress', () {
-    // Being the owner never lets a low rank push into Verification/Closed.
+  test('owner may submit their own work for verification (0018)', () {
+    // The owner runs their own action through the doing phase: Assigned → In
+    // Progress (0016) and In Progress → Verification ("I have finished").
     final toVerification = CapaWorkflow.canTransition(
         from: CapaStatus.inProgress, to: CapaStatus.verification, roleRank: 1, guard: const CapaGuardContext(isOwner: true),);
-    expect(toVerification.allowed, isFalse);
+    expect(toVerification.allowed, isTrue);
+
+    // A non-owner of the same rank still cannot.
+    final nonOwner = CapaWorkflow.canTransition(
+        from: CapaStatus.inProgress, to: CapaStatus.verification, roleRank: 1, guard: const CapaGuardContext(),);
+    expect(nonOwner.allowed, isFalse);
+  });
+
+  test('owner exception never extends to closing', () {
+    // Separation of duties: an owner may hand work back but never accept it.
+    // Verify & Close stays Safety Officer+ regardless of ownership.
+    final ownerClosing = CapaWorkflow.canTransition(
+      from: CapaStatus.verification,
+      to: CapaStatus.closed,
+      roleRank: 1,
+      guard: const CapaGuardContext(isOwner: true, hasVerificationEvidence: true),
+    );
+    expect(ownerClosing.allowed, isFalse);
   });
 
   test('closed is terminal; non-adjacent denied', () {

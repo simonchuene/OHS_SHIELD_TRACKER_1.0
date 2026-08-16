@@ -53,10 +53,14 @@ abstract final class CapaWorkflow {
       return TransitionCheck.deny('Cannot move from ${from.label} to ${to.label}.');
     }
     final g = guard ?? const CapaGuardContext();
-    // The assigned owner may start work on their own action (Assigned → In
-    // Progress) even without Supervisor rank; every other step keeps its rank gate.
-    final ownerStartingWork = to == CapaStatus.inProgress && g.isOwner;
-    if (roleRank < minRankFor(to) && !ownerStartingWork) {
+    // The assigned owner may run their own action through the doing phase
+    // without a rank: Assigned → In Progress (0016) and In Progress →
+    // Verification (0018, "I have finished, please check"). Closing still
+    // requires Safety Officer+, so an owner can neither verify nor close their
+    // own work — the separation of duties that matters is intact.
+    final ownerDoingOwnWork =
+        g.isOwner && (to == CapaStatus.inProgress || to == CapaStatus.verification);
+    if (roleRank < minRankFor(to) && !ownerDoingOwnWork) {
       return const TransitionCheck.deny('You do not have permission for this action.');
     }
     if (to == CapaStatus.assigned && !g.hasOwner) {
