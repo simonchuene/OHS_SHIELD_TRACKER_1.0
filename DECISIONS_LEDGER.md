@@ -280,6 +280,51 @@ First session with a working `flutter run` on the tablet (TARGA F8, Android 15 /
 
 **Process — verify the artefact under test is the artefact you think it is.** The first screenshot after `flutter run` still showed the 4 px overflow, and the near-conclusion was "the fix does not work". It was yesterday's build: `dumpsys package … lastUpdateTime` read `2026-08-15 13:23:53` while Gradle was still assembling. Checking install time before interpreting the screen would have avoided it. A sibling of the §12 lesson: there, code was assumed to run because it existed; here, a build was assumed deployed because a command had been issued.
 
+## 15. RBAC Affordances, Workflow Clarity & Assignment Fixes (2026-08-16)
+
+A round of UX work driven by on-device use, plus two defects it exposed.
+
+### 15.1 Client-side RBAC affordances
+
+Architecture §10 mandates two layers: RLS (authoritative) + conditional UI (UX only). The second layer existed on **hazard and incident only**; CAPA, investigation, inspection and user-admin showed every action to every role and let the server reject it — so a Supervisor could tap "Verify & close" and receive an error instead of seeing it was not theirs to press.
+
+- **`lib/shared/widgets/rank_gated_action.dart`** — `hasMinRank()`, `RoleDeniedNote`, and `RankGatedAction` (full-width action, disabled with the reason beneath). `onPressed` is nullable and the rank check **only ever disables further**, so a caller's own busy/incomplete logic composes safely. `permitted` overrides the rank comparison for guards that are not purely rank-based.
+- Applied to CAPA, investigation and inspection; **hazard and incident refactored onto it** — they had already diverged, one using an inline `TextStyle(fontSize: 11)` and the other `theme.labelSmall`.
+- **Investigation folds the rank check into `canEdit`**, so the analysis fields are read-only for lower ranks, not just the buttons — otherwise a user can write a full root-cause analysis and only be refused at save.
+- **User & Access Administration deliberately not gated**: the router already restricts `/admin` to rank 5, so per-button gating would be redundant styling churn. Noted that the guard reads `rank != null && rank < 5`, so a null rank passes — better fixed at the guard than papered over per button.
+- **Still UX only.** Every gate mirrors an existing server-side rule. A gate stricter than its policy silently blocks legitimate work; a gate looser than its policy is invisible until someone hits an error.
+
+### 15.2 D-capa-1 — assigning an owner left the CAPA in Created, stranding the assignee
+
+Reported as: the assignee receives the notification, opens the CAPA, and finds a greyed-out **Assign** button and no way to Start work.
+
+`_assignOwner` patched **only** `owner_id`. The create path sets both (`status: ownerId != null ? assigned : created`), but the picker path never moved the status. A Created CAPA therefore gained an owner while staying Created, so its next step was *Assigned* — a Supervisor-rank action — which an Employee owner cannot perform. **Start work only exists from Assigned, so it was unreachable.** Fixed: assigning an owner to a Created CAPA now writes the status in the same patch.
+
+**The §15.1 gating did not cause this — it exposed it.** Before, the button was enabled, the tap was rejected server-side, and the CAPA stayed stuck anyway. The gate turned a silent dead end into a visible one. Worth remembering when adding affordances to existing flows: a newly-greyed control often means the underlying path was already broken.
+
+### 15.3 Confirm-before-commit on selection dialogs
+
+Reported as: choosing a name in the picker assigned it immediately. Both offenders used `SimpleDialog` + `SimpleDialogOption`, which pops on tap — so touching a name *was* agreeing to it, and a mis-tap wrote a change (and fired a notification) with no chance to reconsider.
+
+A sweep found **exactly two** such dialogs — CAPA "Assign owner" and incident "Link to hazard". The other eleven already had Cancel + confirm. Replaced with `lib/shared/widgets/select_one_dialog.dart`: tap selects, the confirm button commits and stays disabled until something is chosen. The current value is pre-selected, and an unchanged selection is a no-op rather than a spurious reassignment + notification.
+
+### 15.4 Workflow legibility
+
+Reported as: "does Start work mean the work is finished?" — because the button names the *next* action, so tapping "Start work" and immediately seeing "Submit for verification" reads as a skipped step.
+
+- **Status / Next lines** above the action on CAPA, incident and investigation (hazard already had "Next step").
+- **`lib/shared/widgets/status_stepper.dart`** on all five workflow screens. Takes `labels` + `currentIndex`, so **no status enum needed changing** — hazard's `step` was only ever `values.indexOf(this)`. Hazard's private `_StatusStepper` was deleted and refactored onto it. Documented as assuming a **single linear path**: true of all five MVP1 workflows, but it would become actively misleading rather than merely incomplete if one gained a branch or rejection route.
+- **Assignee names** (`lib/core/utils/user_lookup.dart`): CAPA and investigation read `Assigned: <name>`. **Incidents show "Reported by" instead** — they have no assignee column, only `reporter_id`; labelling that as an assignment would assert an ownership the record does not carry. Incident work is owned through its linked investigation and CAPAs, which do have owners. Giving incidents a real assignee is a schema change, not a wording change.
+- **CAPA detail gained pull-to-refresh** (hazard already had it). A CAPA opened from a notification can be read before the assigning device's outbox has synced, and a `FutureProvider` does not re-fetch on its own.
+
+### 15.5 D-ui-2 — notifications showed a white blob instead of the app icon
+
+Android flattens the notification small icon to its **alpha channel** (API 21+), and with none declared, FCM falls back to the launcher icon — a full-colour squircle that is opaque edge to edge, so it flattens to a solid square.
+
+Added `android/app/src/main/res/drawable/ic_stat_ohs_shield.xml` (vector, so no per-density PNGs) and declared it via `com.google.firebase.messaging.default_notification_icon`, with `@color/brandGreen` as the accent. Geometry is the shield + cross from the branding SVG, scaled to the 24dp viewport; **the gauge ring and check badge are dropped** because at 24dp they collapse into noise. The cross is a **hole** (`evenOdd`), expressed as one plus-shaped subpath rather than two overlapping bars — under `evenOdd` the intersection of two rects flips back to filled and would put a solid square in the middle.
+
+Affects background/terminated notifications only; the foreground path is the in-app banner, which has no icon. `fcm.ts` still deliberately sends no `channel_id` — the app declares no channel.
+
 ## 7. Open Questions / Deviations Log
 - **OQ1:** Confirm `companies` table addition (D1) at Prompt 2A.
 - **OQ2:** Confirm typed-FK linkage vs. untyped polymorphic (D2) at Prompt 2A.
