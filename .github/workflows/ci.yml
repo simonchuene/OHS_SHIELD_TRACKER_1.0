@@ -47,7 +47,13 @@ jobs:
         # reasons unrelated to the change under test, which is how run #2
         # died inside the action itself. Matches the version used locally.
         with: { version: "2.114.0" }
-      - run: supabase start
+      # pgTAP needs Postgres and nothing else, but `supabase start` boots the
+      # whole stack by default — auth, realtime, storage, studio, edge runtime
+      # and analytics (Logflare + Vector). That is a lot of images to pull and a
+      # lot to keep healthy on a runner, and analytics in particular is a common
+      # CI failure. Excluding them keeps the job to what it actually verifies.
+      # Service names come from `supabase start --help` for the pinned CLI.
+      - run: supabase start -x gotrue,realtime,storage-api,imgproxy,mailpit,studio,edge-runtime,logflare,vector,supavisor
       - run: supabase db reset          # applies migrations + seed
       - run: supabase test db            # runs supabase/tests/*.sql (pgTAP)
 
