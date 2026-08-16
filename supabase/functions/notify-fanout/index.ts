@@ -73,6 +73,14 @@ serve(async (req) => {
       recipients = [...new Set((roleRows ?? []).filter((r: any) => (rank[r.roles?.code] ?? 0) >= 3).map((r: any) => r.user_id))];
     }
   }
+  // Never notify someone about their own action. `hazard.created` and friends
+  // fan out to Safety Officer+, so an SO reporting a hazard was telling
+  // themselves about it. Filtered after resolution, and before the empty check
+  // below, so removing the actor can never fall through to a broader audience.
+  // Also covers self-assignment: a CAPA you assign to yourself is already in
+  // your Actions list and needs no announcement.
+  recipients = recipients.filter((id) => id !== callerId);
+
   if (recipients.length === 0) return json({ ok: true, delivered: 0 });
 
   // In-app notifications.
