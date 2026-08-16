@@ -32,7 +32,7 @@ final syncEngineProvider = Provider<SyncEngine>((ref) {
     client: ref.watch(supabaseClientProvider),
     logger: ref.watch(loggerProvider),
   );
-  final connectivity = ref.watch(connectivityStatusProvider.stream);
+  final connectivity = ref.watch(connectivityStreamFactoryProvider)();
   engine.start(connectivity);
   ref.onDispose(engine.dispose);
   return engine;

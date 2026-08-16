@@ -118,9 +118,17 @@ class _InviteUserScreenState extends ConsumerState<InviteUserScreen> {
               ),
               const SizedBox(height: 20),
               Text('Role scope', style: Theme.of(context).textTheme.titleLarge),
-              RadioListTile<_Scope>(value: _Scope.companyWide, groupValue: _scope, onChanged: (v) => setState(() => _scope = v!), title: const Text('Company-wide')),
-              RadioListTile<_Scope>(value: _Scope.site, groupValue: _scope, onChanged: (v) => setState(() => _scope = v!), title: const Text('Site-scoped')),
-              RadioListTile<_Scope>(value: _Scope.department, groupValue: _scope, onChanged: (v) => setState(() => _scope = v!), title: const Text('Department-scoped')),
+              // Per-tile groupValue/onChanged were deprecated after 3.32; the
+              // group's state now lives on a RadioGroup ancestor.
+              RadioGroup<_Scope>(
+                groupValue: _scope,
+                onChanged: (v) => setState(() => _scope = v ?? _scope),
+                child: const Column(children: [
+                  RadioListTile<_Scope>(value: _Scope.companyWide, title: Text('Company-wide')),
+                  RadioListTile<_Scope>(value: _Scope.site, title: Text('Site-scoped')),
+                  RadioListTile<_Scope>(value: _Scope.department, title: Text('Department-scoped')),
+                ],),
+              ),
               if (_scope != _Scope.companyWide)
                 sites.when(
                   loading: () => const Padding(padding: EdgeInsets.all(8), child: LinearProgressIndicator()),

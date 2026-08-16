@@ -37,7 +37,7 @@ AttachmentUploadQueue attachmentUploadQueue(AttachmentUploadQueueRef ref) {
     repo: ref.watch(attachmentRepositoryProvider),
     logger: ref.watch(loggerProvider),
   );
-  queue.start(ref.watch(connectivityStatusProvider.stream));
+  queue.start(ref.watch(connectivityStreamFactoryProvider)());
   ref.onDispose(queue.dispose);
   return queue;
 }

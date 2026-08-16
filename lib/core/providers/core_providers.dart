@@ -40,10 +40,29 @@ final connectivityProvider = Provider<Connectivity>((ref) => Connectivity());
 
 /// Stream of online/offline status, consumed by the sync engine (Prompt 4B)
 /// and the global offline banner (Prompt 3 §9.4).
-final connectivityStatusProvider = StreamProvider<bool>((ref) async* {
-  final connectivity = ref.watch(connectivityProvider);
-  bool isOnline(List<ConnectivityResult> r) =>
-      r.any((c) => c != ConnectivityResult.none);
+Stream<bool> _connectivityStream(Connectivity connectivity) async* {
+  bool isOnline(List<ConnectivityResult> r) => r.any((c) => c != ConnectivityResult.none);
+  // Current state first, then changes — consumers must know whether they are
+  // online before anything toggles, or the sync engine idles until the next
+  // connectivity event.
   yield isOnline(await connectivity.checkConnectivity());
   yield* connectivity.onConnectivityChanged.map(isOnline);
+}
+
+final connectivityStatusProvider =
+    StreamProvider<bool>((ref) => _connectivityStream(ref.watch(connectivityProvider)));
+
+/// Builds a **fresh** online/offline stream for consumers that need a
+/// `Stream<bool>` rather than an `AsyncValue` — the sync engine and the
+/// attachment upload queue each take one at construction.
+///
+/// A factory, not a stream: Riverpod deprecated `someProvider.stream` (removed
+/// in 3.0), and the obvious replacements are both wrong here. Caching one
+/// instance would hand the same **single-subscription** `async*` stream to two
+/// listeners, which throws; converting it to a broadcast stream would deliver
+/// the initial state only to whichever subscribed first. Each consumer gets its
+/// own subscription instead.
+final connectivityStreamFactoryProvider = Provider<Stream<bool> Function()>((ref) {
+  final connectivity = ref.watch(connectivityProvider);
+  return () => _connectivityStream(connectivity);
 });

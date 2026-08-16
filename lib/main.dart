@@ -24,7 +24,8 @@ Future<void> main() async {
 
   await Supabase.initialize(
     url: config.supabaseUrl,
-    anonKey: config.supabaseAnonKey,
+    // `anonKey` is deprecated; the value is a publishable key either way.
+    publishableKey: config.supabaseAnonKey,
   );
 
   runApp(
