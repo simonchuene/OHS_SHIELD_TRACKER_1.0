@@ -339,6 +339,24 @@ Suppresses only the notification. Audit rows, workflow state and other recipient
 
 **D-lang-1 (toolchain note).** The list change was first written with null-aware collection elements (`?expr`), which the installed Dart 3.12 accepts. It would not have compiled: a package's **language version comes from the pubspec SDK floor** (`>=3.5.0`), not the installed SDK, and `?expr` requires 3.9+. Worth remembering before reaching for a recent language feature — the analyzer catches it, but the reflex "the SDK supports it" is wrong here. Rewritten with collection-`if`.
 
+## 17. CAPA Completion Notes & the Owner's Doing Phase (2026-08-16)
+
+Asked for: let people record what they did when finishing assigned work, and surface it in reports. Investigating it exposed a workflow gap that had to be settled first.
+
+**The blocker — the owner could not finish their own work.** `Submit for verification` moves a CAPA to *Verification*, gated at Safety Officer+ in both layers (`CapaWorkflow.minRankFor`, and the `capa_update` WITH CHECK from 0016). An Employee owner could **Start work** (§10) but not hand it back: someone senior had to submit on their behalf, so there was no transition of theirs to attach completion notes to. Adding a notes field without fixing this would have produced a field its intended author could never reach.
+
+**D-workflow-1 — the owner's doing phase (migration 0018).** The owner may now run their own CAPA through *Assigned → In Progress* **and** *In Progress → Verification*. **Closing remains Safety Officer+**, so an owner may hand work back but never accept it — the separation of duties that matters is untouched. Enforced in three places that must agree: the RLS `WITH CHECK` (authoritative), `CapaWorkflow.canTransition`, and the client affordance.
+
+**`completion_notes`, deliberately not `verification_notes`.** The existing column is the *verifier's* rationale for accepting the work; the new one is the *doer's* account of performing it. Reusing the existing field needed no migration and was rejected: collapsing them leaves an audit record where it is impossible to tell who wrote which, and a CAPA's evidence trail is precisely what a regulator reads. Also considered and deferred: a general `record_comments` thread (~2 days, and reports would have to flatten a conversation into a cell). A column does not block adding threads later.
+
+**Prompt behaviour.** Submitting opens a "What was done?" dialog. **Cancel abandons the transition; an empty note still submits.** Requiring text would teach people to type "done" to get past it — worse than an honest blank, because it looks like a record.
+
+**Reporting.** The CAPA status report gains a *Work completed* column. CSV and PDF needed no changes: both are driven by the `columns` list the repository returns.
+
+**A test caught the policy change.** `capa_workflow_test.dart` asserted *"owner exception does not extend past In Progress"* — exactly the rule being moved — and failed. Split into two rather than flipped: one covering the new allowance (and that a **non-owner** of the same rank still cannot), one asserting the owner can **never** close even with verification evidence present. The original test was really guarding separation of duties; only its boundary moved, so deleting it and keeping the happy path would have dropped the guard that stops an owner signing off their own work. **When a deliberate change breaks a test, ask what principle it was protecting before rewriting it — the principle usually survives the change.**
+
+**Applied via `supabase db push`** — the first real use since §13's `migration repair`, and the proof it worked: the dry run listed only 0018 rather than trying to replay 0001 onward.
+
 ## 7. Open Questions / Deviations Log
 - **OQ1:** Confirm `companies` table addition (D1) at Prompt 2A.
 - **OQ2:** Confirm typed-FK linkage vs. untyped polymorphic (D2) at Prompt 2A.
