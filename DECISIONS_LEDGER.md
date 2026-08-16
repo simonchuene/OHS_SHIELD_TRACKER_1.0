@@ -371,6 +371,22 @@ Submitting a CAPA for verification told nobody. §17/0018 let the owner hand wor
 
 **Postgres note.** `ALTER TYPE ... ADD VALUE` is permitted inside a transaction on PG 12+ provided the new value is not *used* in the same transaction. The migration only adds it; first use is a later INSERT from the Edge Function.
 
+## 19. CI Has Never Passed — Toolchain Pin Corrected (2026-08-16)
+
+First push to `origin` this session triggered CI. It failed. So did **run #1 on `eadddf3`**, the baseline import from 2026-08-14, at the **same step** — `flutter pub get`. **CI has never passed on this repository.** It was authored at Prompt 18 and, on the evidence, never run green; "CI exists" was true, "CI is green" was never established.
+
+Both `Build` and `Deploy Supabase` were *skipped*, not failed — they `needs:` the two failing jobs. Which means the more serious consequence is not the red badge: **no release could ever be cut through CI**, because a `v*` tag cannot reach the AAB build or the migration deploy while those jobs fail. A go-live blocker, sitting dormant since Prompt 18.
+
+**🔖 Deviation — `FLUTTER_VERSION` 3.24.5 → 3.44.6.** The Master Prompt pins 3.24.5. The Android config now requires AGP 9.0.1's new DSL, which older Flutter does not supply — proven by a control build on 3.41.6 (§14, W-adb-1 round) that failed at Gradle script compilation before touching app code. **CI was therefore testing a configuration this codebase cannot compile in.** Aligning the pin to the version the app is actually built, tested and device-verified on makes CI reproduce reality rather than an aspiration.
+
+**`supabase/setup-cli` pinned to 2.114.0** (was `version: latest`). Run #2 died *inside the action itself*, and run #1 at `supabase start` — different steps, which is the signature of an unpinned dependency moving underneath you. An unpinned tool makes a job fail for reasons unrelated to the change under test, which is the opposite of what CI is for.
+
+**Not yet proven.** The `pub get` failure was diagnosed from the run comparison, not the logs — downloading job logs needs repo-admin auth. The hypothesis is that recent dependency pins (`share_plus ^12.0.2`, `flutter_launcher_icons ^0.14.1`) have SDK floors above the Dart 3.5 that ships with Flutter 3.24.5, so resolution fails outright. **The next CI run is the experiment**, not a confirmation.
+
+**Related, unfixed.** `pubspec.lock` is gitignored, so CI resolves dependencies fresh and has never validated the exact set running locally. Committing the lockfile would make CI reproduce the verified environment rather than approximate it — worth considering, and a larger decision than a version bump.
+
+**Still untested anywhere: the release build.** Every build this session has been `--debug`. `flutter build appbundle --release --flavor prod` has never run on any toolchain. Release differs in tree-shaking, R8/ProGuard and signing, and R8 has a history of breaking reflection-based plugins — Firebase Messaging being exactly that shape, and already emitting Kotlin-migration warnings. This is the highest-value untested path before go-live, independent of the CI question.
+
 ## 7. Open Questions / Deviations Log
 - **OQ1:** Confirm `companies` table addition (D1) at Prompt 2A.
 - **OQ2:** Confirm typed-FK linkage vs. untyped polymorphic (D2) at Prompt 2A.
