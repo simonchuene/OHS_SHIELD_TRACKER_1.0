@@ -262,6 +262,24 @@ Reported as notifications showing 2 hours behind in CAT (UTC+2). Systemic, not n
 
 **Process.** D-tz-1 is a third failure shape, distinct from the §12 pair: **a correct local patch that masked a general defect.** Someone fixed the dashboard's timestamps with a `toLocal()` at the point of pain and moved on, leaving six other surfaces wrong and no shared helper. Worth asking, when a fix is a one-liner at a call site: *is this the only place this data crosses this boundary?*
 
+## 14. Device Verification & Workstation Fixes (2026-08-16)
+
+First session with a working `flutter run` on the tablet (TARGA F8, Android 15 / API 35), so the §12–§13 items that were "implemented but unverified on device" could finally be observed rather than inferred.
+
+**W-adb-1 — `adb` hung indefinitely on this workstation; fixed with `ADB_LIBUSB=0`.** `adb version` returned instantly but `adb devices` never returned, on both the SDK's 37.0.0 and a freshly downloaded 37.0.1, with and without a device attached. **The initial diagnosis (loopback TCP being filtered) was wrong** and was disproved by measurement: loopback listen+connect+accept completes in 5 ms, and a connect to the closed port 5037 returns a correct `ConnectionRefused`. The real cause is adb's **libusb backend hanging during USB enumeration at server startup** — which explains why the binary ran fine, why alternate ports made no difference, why `nodaemon server` printed nothing, and why it hung with no Android device present (it was enumerating the webcam/hub/card-reader). `ADB_LIBUSB=0` selects the legacy Windows USB backend; set at User scope, so new shells inherit it. Note this is a **workstation** fix, not a repo change.
+
+**D-ui-1 — incident trend chart overflowed by 4.0 px.** `MiniBarChart` sized its bars as `height - 34`, reserving 34 px for chrome that actually measures **38** — two 12 pt `labelSmall` lines at ~16 px plus the 2 px and 4 px gaps. Fixed by removing the constant rather than correcting it: the bar is now an `Expanded` inside the column with `FractionallySizedBox(heightFactor:)`, so it takes whatever remains after the labels and cannot exceed its parent. This also survives a type-scale change or a user's larger font setting, where the magic number would have overflowed far worse than 4 px.
+
+**Verified on device (all previously open).**
+- **Foreground banner** — reporting a hazard raised the in-app banner ("New hazard reported" + body + **View**) over the hazard list. Proves the whole chain in one action: `fire()` → `notify-fanout` → recipient resolution → service-account OAuth2 → FCM HTTP v1 → Google → device → `onMessage` → banner.
+- **Timestamps in device timezone** — the Notification Center shows the sweep's `capa_overdue` entry at **Aug 16 8:00 AM**. The cron is `0 6 * * *` **UTC** and CAT is UTC+2, so 8:00 AM is the correct rendering and 6:00 AM would have been the old bug. Confirmed against a timestamp whose true value is independently known.
+- **CAPA "Start work"** — transitions to In Progress with a confirmation toast; no `UnknownFailure` (D-push-4 closed).
+- **Chart** — no overflow stripe, all six week labels visible, bar correctly proportioned.
+
+**The scheduled sweep ran unattended.** That `Aug 16 8:00 AM` notification was raised by **pg_cron at 06:00 UTC with nobody involved** — the first proof the scheduler works in production rather than only when invoked by hand. Body format matches `notify-sweep` (`Due <date>: <description>`) with the `high` badge, and the idempotency guard held: one entry for that CAPA today, not repeats.
+
+**Process — verify the artefact under test is the artefact you think it is.** The first screenshot after `flutter run` still showed the 4 px overflow, and the near-conclusion was "the fix does not work". It was yesterday's build: `dumpsys package … lastUpdateTime` read `2026-08-15 13:23:53` while Gradle was still assembling. Checking install time before interpreting the screen would have avoided it. A sibling of the §12 lesson: there, code was assumed to run because it existed; here, a build was assumed deployed because a command had been issued.
+
 ## 7. Open Questions / Deviations Log
 - **OQ1:** Confirm `companies` table addition (D1) at Prompt 2A.
 - **OQ2:** Confirm typed-FK linkage vs. untyped polymorphic (D2) at Prompt 2A.
