@@ -394,6 +394,28 @@ The nine were all genuine deprecations, now fixed (analyze: *No issues found*, e
 
 **Still untested anywhere: the release build.** Every build this session has been `--debug`. `flutter build appbundle --release --flavor prod` has never run on any toolchain. Release differs in tree-shaking, R8/ProGuard and signing, and R8 has a history of breaking reflection-based plugins — Firebase Messaging being exactly that shape, and already emitting Kotlin-migration warnings. This is the highest-value untested path before go-live, independent of the CI question.
 
+## 20. D-users-1 — the Users screen could never load (2026-08-17)
+
+Reported as "Couldn't load users · Retry" on User & Access Administration. **First bug this session diagnosed from device logs rather than inference** — with adb working (§14 W-adb-1), logcat named the error code, the tables and a hint in a single line:
+
+```
+PostgrestException(code: PGRST200)
+Could not find a relationship between 'user_profiles' and 'user_roles' in the schema cache
+Postgrest error [listUsers]
+```
+
+**Two layered defects, not one.**
+
+1. **PGRST200 — sibling tables.** `_selectGraph` embedded `user_roles` directly from `user_profiles`. PostgREST only embeds across a real foreign key, and those two are **siblings**: `user_profiles.user_id → users(id)` and `user_roles.user_id → users(id)`, with neither referencing the other. `users(email)` in the same query worked precisely because that FK does exist, which is why the failure looked selective rather than structural.
+
+2. **PGRST201 — ambiguous FK.** Nesting `user_roles` under `users` follows real FKs, but `user_roles` has **two** references to `users`: `user_id` (the role holder) and `granted_by` (who granted it). PostgREST refused to guess. That refusal is a feature: guessing `granted_by` would have listed each *grantor's* roles against the wrong user, silently. An admin screen showing plausible-but-wrong role assignments is worse than one that fails loudly.
+
+**Fix:** `'*, users(email, user_roles!user_roles_user_id_fkey(site_id, department_id, roles(code)))'`, with `_map` reading roles from the nested `users` object.
+
+**The second defect was caught before shipping** by running both candidate graphs against the live REST API with the publishable key. PGRST200/201 are *schema-cache* errors raised **before** RLS, so an anonymous request tests the query shape precisely: an invalid graph returns 400/300 with the diagnosis, a valid one returns `200 []` (RLS denying anon). Without that check the first fix would have shipped and produced a different error on the device. **A PostgREST embed is worth one curl before it is worth a rebuild.**
+
+**Why it survived this long.** The screen was *built but unreachable* until the More hub landed on 2026-08-06 (§10, "routable but not navigable"). `listUsers` has been broken since Prompt 5A and nobody could reach it to find out. The §10 lesson arriving late, from the other side: a module marked done, whose first genuine use is what finds the defect.
+
 ## 7. Open Questions / Deviations Log
 - **OQ1:** Confirm `companies` table addition (D1) at Prompt 2A.
 - **OQ2:** Confirm typed-FK linkage vs. untyped polymorphic (D2) at Prompt 2A.
