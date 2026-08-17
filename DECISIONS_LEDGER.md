@@ -334,7 +334,16 @@ Affects background/terminated notifications only; the foreground path is the in-
 - **Foreground banner**, re-confirmed (first observed §14).
 - **D-users-1** (§20): the Users screen lists users with emails and roles. The roles are the evidence that matters — a wrong `granted_by` embed would still have rendered, just with roles attributed to the wrong people, so a screen that merely *loads* would not have proved the fix.
 
-**Still unverified:** the Employee-owner CAPA path end to end — Start work → Submit for verification with completion notes → a *different* Safety Officer notified (`capa.verification_due`) → **Verify & close still barred to the owner**. That last check is the one that proves §17's boundary moved by exactly one step and no further, and it is the largest concentration of this session's changes.
+- **The Employee-owner CAPA path, end to end** — Start work → Submit for verification with completion notes → a *different* Safety Officer receives `capa.verification_due` → **Verify & close still barred to the owner.**
+
+That last run is the session's most load-bearing verification, because it exercises every layer at once and would fail visibly if any of them had drifted:
+
+- **§15.2 (D-capa-1)** — the assignment writes the status, so the owner reaches *Assigned* and can start at all.
+- **§17 / RLS 0018** — the owner's doing phase extends to *Verification*, and **no further**. An owner able to close their own action would break the separation of duties the workflow rests on, and that rule now lives in three places that must agree: the client affordance, `CapaWorkflow.canTransition`, and the `capa_update` WITH CHECK. The owner being barred from close is what proves they still do.
+- **§17 completion notes** — captured on the transition and stored distinctly from `verification_notes`.
+- **§18 / migration 0019** — the eighth trigger fires, and reaches *a different* Safety Officer, which simultaneously exercises §16's actor filter: had that filter been wrong, the submitting owner would have notified themselves.
+
+**All device verification for this session is now closed.** The only outstanding item is the pre-release one below.
 
 ## 16. Self-Notification & Reporter Attribution (2026-08-16)
 
