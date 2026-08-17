@@ -19,7 +19,14 @@ abstract interface class AuthRepository {
 
   Future<Result<void>> signOut();
 
-  Future<Result<void>> sendPasswordReset(String email);
+  /// Sends the reset email. [redirectTo] is the deep link the email should
+  /// return to; without it Supabase falls back to the project's Site URL.
+  Future<Result<void>> sendPasswordReset(String email, {String? redirectTo});
+
+  /// Sets a password for the *currently authenticated* session. Used by both
+  /// flows that arrive via an email link: an invitee choosing their first
+  /// password, and a user completing a reset.
+  Future<Result<void>> setPassword(String newPassword);
 
   /// Loads the full [AppUser] (profile + scope-aware roles) for the current
   /// session. Returns null when there is no session.

@@ -10,6 +10,7 @@ import 'package:ohs_shield_tracker/features/auth/domain/entities/app_user.dart';
 import 'package:ohs_shield_tracker/features/auth/domain/repositories/auth_repository.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:ohs_shield_tracker/features/auth/presentation/providers/password_setup_gate.dart';
 
 part 'auth_providers.g.dart';
 
@@ -32,6 +33,10 @@ SignOutUseCase signOutUseCase(SignOutUseCaseRef ref) =>
 @riverpod
 SendPasswordResetUseCase sendPasswordResetUseCase(SendPasswordResetUseCaseRef ref) =>
     SendPasswordResetUseCase(ref.watch(authRepositoryProvider));
+
+@riverpod
+SetPasswordUseCase setPasswordUseCase(SetPasswordUseCaseRef ref) =>
+    SetPasswordUseCase(ref.watch(authRepositoryProvider));
 
 @riverpod
 LoadCurrentUserUseCase loadCurrentUserUseCase(LoadCurrentUserUseCaseRef ref) =>
@@ -113,10 +118,43 @@ class ForgotPasswordController extends _$ForgotPasswordController {
 
   Future<bool> submit(String email) async {
     state = const AsyncLoading();
-    final res = await ref.read(sendPasswordResetUseCaseProvider).call(email);
+    // Without redirectTo the email lands on the project's Site URL, which
+    // defaulted to http://localhost:3000 — the reset mail sent fine and went
+    // nowhere.
+    final res = await ref.read(sendPasswordResetUseCaseProvider)
+        .call(email, redirectTo: ref.read(appConfigProvider).authRedirectUrl);
     return res.when(
       ok: (_) {
         state = const AsyncData(null);
+        return true;
+      },
+      err: (f) {
+        state = AsyncError(f, StackTrace.current);
+        return false;
+      },
+    );
+  }
+}
+
+/// Completes an invite or a password reset: both arrive via an email deep link
+/// that establishes a session, then need a password chosen for it.
+@riverpod
+class SetPasswordController extends _$SetPasswordController {
+  @override
+  AsyncValue<void> build() => const AsyncData(null);
+
+  Future<bool> submit(String password) async {
+    state = const AsyncLoading();
+    final res = await ref.read(setPasswordUseCaseProvider).call(password);
+    return res.when(
+      ok: (_) {
+        state = const AsyncData(null);
+        // 0020's trigger flips an invited profile to 'active' on this write, so
+        // re-read the user before dropping the gate — otherwise the stale
+        // 'invited' status would immediately re-raise it and trap the user on
+        // this screen.
+        ref.invalidate(currentUserProvider);
+        ref.read(passwordSetupGateProvider).clear();
         return true;
       },
       err: (f) {

@@ -40,9 +40,15 @@ final class AuthRepositoryImpl extends BaseRepository implements AuthRepository 
       run(() => _client.auth.signOut(), context: 'signOut');
 
   @override
-  Future<Result<void>> sendPasswordReset(String email) => run(
-        () => _client.auth.resetPasswordForEmail(email),
+  Future<Result<void>> sendPasswordReset(String email, {String? redirectTo}) => run(
+        () => _client.auth.resetPasswordForEmail(email, redirectTo: redirectTo),
         context: 'sendPasswordReset',
+      );
+
+  @override
+  Future<Result<void>> setPassword(String newPassword) => run(
+        () => _client.auth.updateUser(UserAttributes(password: newPassword)),
+        context: 'setPassword',
       );
 
   @override

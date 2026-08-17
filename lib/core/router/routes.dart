@@ -7,6 +7,8 @@ abstract final class Routes {
   static const splash = '/';
   static const login = '/login';
   static const forgotPassword = '/login/forgot';
+  /// Where invite and password-reset deep links land.
+  static const setPassword = '/set-password';
   static const roleUnavailable = '/unavailable';
 
   // Shell tabs

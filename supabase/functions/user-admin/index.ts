@@ -17,6 +17,12 @@ const cors = {
 const URL = Deno.env.get('SUPABASE_URL')!;
 const ANON = Deno.env.get('SUPABASE_ANON_KEY')!;
 const SERVICE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+// Where the invite email sends the user. Without it Supabase falls back to the
+// project's Site URL, which defaulted to http://localhost:3000 — the invite
+// sent successfully and its link went nowhere, so no invitee could ever set a
+// password. Must also be listed under Authentication → URL Configuration →
+// Redirect URLs, and match the app's deep-link intent-filter.
+const AUTH_REDIRECT_URL = Deno.env.get('AUTH_REDIRECT_URL') ?? 'ohsshield://auth-callback';
 
 // Allowed lifecycle transitions (mirrors domain UserLifecycle in Flutter).
 const ALLOWED: Record<string, string[]> = {
@@ -94,7 +100,7 @@ serve(async (req) => {
           role, roleSiteId, roleDepartmentId } = body;
         if (!email || !firstName || !lastName || !role) return json({ error: 'Missing required fields' }, 400);
 
-        const { data: invited, error: invErr } = await admin.auth.admin.inviteUserByEmail(email);
+        const { data: invited, error: invErr } = await admin.auth.admin.inviteUserByEmail(email, { redirectTo: AUTH_REDIRECT_URL });
         if (invErr || !invited.user) return json({ error: invErr?.message ?? 'Invite failed' }, 400);
         const newId = invited.user.id;
 
@@ -122,7 +128,7 @@ serve(async (req) => {
         if (!target) return json({ error: 'User not in your company' }, 403);
         const { data: u } = await admin.from('users').select('email').eq('id', body.userId).single();
         if (!u?.email) return json({ error: 'No email on file' }, 400);
-        const { error } = await admin.auth.admin.inviteUserByEmail(u.email);
+        const { error } = await admin.auth.admin.inviteUserByEmail(u.email, { redirectTo: AUTH_REDIRECT_URL });
         if (error) return json({ error: error.message }, 400);
         await audit('user.invite_resent', body.userId, null, { email: u.email });
         return json({ ok: true });

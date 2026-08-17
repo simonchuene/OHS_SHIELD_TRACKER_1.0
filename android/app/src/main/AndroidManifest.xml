@@ -39,6 +39,19 @@
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
+            <!-- Auth deep link: invite and password-reset emails redirect here so
+                 supabase_flutter can complete the session and the app can show
+                 the set-password screen. Without this the app cannot receive any
+                 link at all, and the emails land on the project's Site URL.
+                 The scheme must match AppConfig.authRedirectUrl and the Redirect
+                 URLs configured on the Supabase project. BROWSABLE + DEFAULT are
+                 both required for a link tapped in a mail client to resolve. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="ohsshield" android:host="auth-callback"/>
+            </intent-filter>
         </activity>
         <!-- FCM notification appearance. Without these, Android falls back to the
              launcher icon for the small icon and masks it to a white blob, since

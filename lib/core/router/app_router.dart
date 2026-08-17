@@ -35,6 +35,8 @@ import 'package:ohs_shield_tracker/features/user_admin/presentation/screens/user
 import 'package:ohs_shield_tracker/shared/widgets/app_shell.dart';
 import 'package:ohs_shield_tracker/shared/widgets/placeholder_screen.dart';
 import 'package:ohs_shield_tracker/shared/widgets/splash_screen.dart';
+import 'package:ohs_shield_tracker/features/auth/presentation/screens/set_password_screen.dart';
+import 'package:ohs_shield_tracker/features/auth/presentation/providers/password_setup_gate.dart';
 
 /// Declarative navigation (GoRouter) with an auth-redirect guard and a role
 /// guard on restricted routes. Feature prompts replace the [PlaceholderScreen]
@@ -42,6 +44,7 @@ import 'package:ohs_shield_tracker/shared/widgets/splash_screen.dart';
 final goRouterProvider = Provider<GoRouter>((ref) {
   final client = ref.watch(supabaseClientProvider);
   final splashGate = ref.watch(splashGateProvider);
+  final passwordGate = ref.watch(passwordSetupGateProvider);
 
   final rootKey = GlobalKey<NavigatorState>();
   final shellKeys = List.generate(4, (_) => GlobalKey<NavigatorState>());
@@ -52,6 +55,7 @@ final goRouterProvider = Provider<GoRouter>((ref) {
     refreshListenable: Listenable.merge([
       GoRouterRefreshStream(client.auth.onAuthStateChange),
       splashGate,
+      passwordGate,
     ]),
     redirect: (context, state) {
       final loggedIn = client.auth.currentSession != null;
@@ -61,6 +65,16 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       // right place. Cold start only — the splash route is never returned to.
       if (loc == Routes.splash) {
         if (!splashGate.value) return null;
+        return loggedIn ? Routes.dashboard : Routes.login;
+      }
+
+      // A session established by an invite or reset link has no password yet.
+      // Hold the user on the set-password screen until they choose one —
+      // otherwise they land in the app unable to sign in again next time.
+      if (loggedIn && passwordGate.required) {
+        return loc == Routes.setPassword ? null : Routes.setPassword;
+      }
+      if (!passwordGate.required && loc == Routes.setPassword) {
         return loggedIn ? Routes.dashboard : Routes.login;
       }
 
@@ -87,6 +101,7 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(path: Routes.splash, builder: (_, __) => const SplashScreen()),
       GoRoute(path: Routes.login, builder: (_, __) => const LoginScreen()),
       GoRoute(path: Routes.forgotPassword, builder: (_, __) => const ForgotPasswordScreen()),
+      GoRoute(path: Routes.setPassword, builder: (_, __) => const SetPasswordScreen()),
       GoRoute(path: Routes.roleUnavailable, builder: (_, __) => const PlaceholderScreen(title: 'Not available for your role')),
 
       StatefulShellRoute.indexedStack(

@@ -47,7 +47,8 @@ class SignOutUseCase {
 class SendPasswordResetUseCase {
   const SendPasswordResetUseCase(this._repo);
   final AuthRepository _repo;
-  Future<Result<void>> call(String email) => _repo.sendPasswordReset(email);
+  Future<Result<void>> call(String email, {String? redirectTo}) =>
+      _repo.sendPasswordReset(email, redirectTo: redirectTo);
 }
 
 class LoadCurrentUserUseCase {
@@ -71,4 +72,13 @@ class LoadCurrentUserUseCase {
     }
     return Ok(user);
   }
+}
+
+/// Sets a password for the current session. Reached from the set-password
+/// screen after an invite or reset link has established a session.
+class SetPasswordUseCase {
+  const SetPasswordUseCase(this._repo);
+  final AuthRepository _repo;
+
+  Future<Result<void>> call(String password) => _repo.setPassword(password);
 }
