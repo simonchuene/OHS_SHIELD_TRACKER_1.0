@@ -325,6 +325,17 @@ Added `android/app/src/main/res/drawable/ic_stat_ohs_shield.xml` (vector, so no 
 
 Affects background/terminated notifications only; the foreground path is the in-app banner, which has no icon. `fcm.ts` still deliberately sends no `channel_id` — the app declares no channel.
 
+### 15.6 Verified on device (2026-08-17)
+
+§15 was recorded as implemented; the following are now **observed**, which is the distinction §11–§14 exist to keep:
+
+- **RBAC gating**, exercised on a genuinely lower-ranked account rather than the Administrator everything was built under. Until now every gate had been tested by a rank-5 user, for whom they all pass — i.e. the affordances had never actually been seen to deny anything.
+- **Notification small icon** (D-ui-2), with the app backgrounded, which is the only state that exercises it — a foreground push goes to the in-app banner and has no icon.
+- **Foreground banner**, re-confirmed (first observed §14).
+- **D-users-1** (§20): the Users screen lists users with emails and roles. The roles are the evidence that matters — a wrong `granted_by` embed would still have rendered, just with roles attributed to the wrong people, so a screen that merely *loads* would not have proved the fix.
+
+**Still unverified:** the Employee-owner CAPA path end to end — Start work → Submit for verification with completion notes → a *different* Safety Officer notified (`capa.verification_due`) → **Verify & close still barred to the owner**. That last check is the one that proves §17's boundary moved by exactly one step and no further, and it is the largest concentration of this session's changes.
+
 ## 16. Self-Notification & Reporter Attribution (2026-08-16)
 
 **D-notif-1 — users were notified about their own actions.** Reported as: logging a hazard produced an in-app notification for the person who logged it. Correct by the rule, wrong as behaviour — `hazard.created`, `incident.created`, `risk.assessed` and `investigation.due` fan out to Safety Officer+ (§Notifications), so any SO/Manager/Admin reporting something was in their own audience.
