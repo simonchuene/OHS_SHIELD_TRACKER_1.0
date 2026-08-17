@@ -29,6 +29,27 @@ class PasswordSetupGate extends ChangeNotifier {
   }
 }
 
+/// Whether a recovery link was processed before the widget tree existed.
+///
+/// A link that *launches* the app — the normal case, since tapping it in a mail
+/// client cold-starts the process — is handled by `supabase_flutter` during
+/// startup, and `passwordRecovery` can fire before Riverpod has built any
+/// provider. A stream listener created later never sees it: the event is gone,
+/// and the user lands on the dashboard with a session they cannot recreate.
+///
+/// So the subscription starts in `main()`, before `runApp`, and parks the result
+/// here for the gate to pick up. `ValueNotifier` rather than a bare bool so a
+/// late-built gate is still notified if the event arrives mid-startup.
+final earlyPasswordRecovery = ValueNotifier<bool>(false);
+
+/// Starts watching for recovery events immediately after `Supabase.initialize()`.
+/// Must be called before `runApp` — that is the entire point.
+void watchEarlyPasswordRecovery(SupabaseClient client) {
+  client.auth.onAuthStateChange.listen((s) {
+    if (s.event == AuthChangeEvent.passwordRecovery) earlyPasswordRecovery.value = true;
+  });
+}
+
 /// Raises the gate for the two ways a session can exist without a password.
 ///
 /// **Reset** is event-driven: Supabase emits `passwordRecovery` when a recovery
@@ -44,6 +65,16 @@ class PasswordSetupGate extends ChangeNotifier {
 final passwordSetupGateProvider = Provider<PasswordSetupGate>((ref) {
   final gate = PasswordSetupGate();
 
+  // A recovery event caught before the tree existed (see above). Checked on
+  // creation *and* listened to, because startup ordering is not guaranteed:
+  // the gate may be built either side of the link being processed.
+  if (earlyPasswordRecovery.value) gate.flag();
+  void onEarly() {
+    if (earlyPasswordRecovery.value) gate.flag();
+  }
+  earlyPasswordRecovery.addListener(onEarly);
+
+  // Recovery links arriving while the app is already running.
   final sub = ref.watch(supabaseClientProvider).auth.onAuthStateChange.listen((s) {
     if (s.event == AuthChangeEvent.passwordRecovery) gate.flag();
   });
@@ -57,6 +88,7 @@ final passwordSetupGateProvider = Provider<PasswordSetupGate>((ref) {
 
   ref.onDispose(() {
     sub.cancel();
+    earlyPasswordRecovery.removeListener(onEarly);
     gate.dispose();
   });
   return gate;

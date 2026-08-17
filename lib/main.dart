@@ -9,6 +9,7 @@ import 'package:ohs_shield_tracker/core/config/app_config.dart';
 import 'package:ohs_shield_tracker/core/network/dev_http_overrides.dart';
 import 'package:ohs_shield_tracker/core/providers/core_providers.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:ohs_shield_tracker/features/auth/presentation/providers/password_setup_gate.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -27,6 +28,10 @@ Future<void> main() async {
     // `anonKey` is deprecated; the value is a publishable key either way.
     publishableKey: config.supabaseAnonKey,
   );
+
+  // Before runApp: a link that launches the app is processed during startup,
+  // and passwordRecovery can fire before any provider exists to hear it.
+  watchEarlyPasswordRecovery(Supabase.instance.client);
 
   runApp(
     ProviderScope(
