@@ -436,6 +436,46 @@ Postgrest error [listUsers]
 
 **Why it survived this long.** The screen was *built but unreachable* until the More hub landed on 2026-08-06 (§10, "routable but not navigable"). `listUsers` has been broken since Prompt 5A and nobody could reach it to find out. The §10 lesson arriving late, from the other side: a module marked done, whose first genuine use is what finds the defect.
 
+## 21. D-auth-1 — Invite and Password Reset Both Went Nowhere (2026-08-17)
+
+Reported as "the email invites open a localhost:3000 URL". Investigating it found the same defect in **both** email journeys, so neither onboarding nor account recovery worked at all.
+
+**Root cause.** `inviteUserByEmail()` and `resetPasswordForEmail()` were both called with no `redirectTo`, so Supabase fell back to the project's Site URL — still the default `http://localhost:3000`. Both looked healthy from inside the app: the invite succeeded, the reset screen said "check your email". **The failure lived entirely in the email's destination**, which is why it survived to now.
+
+**Fixing the URL alone would not have worked — three layers were missing:**
+
+| Layer | State |
+|---|---|
+| Redirect target | Not passed; project fell back to Site URL |
+| Deep-link registration | Manifest had only `MAIN`/`LAUNCHER` — the app could not receive *any* link |
+| Landing screen | Did not exist; only login and forgot-password |
+
+**Built:** `AppConfig.authRedirectUrl` (+ `AUTH_REDIRECT_URL` in `user-admin`), a `VIEW`/`BROWSABLE`/`DEFAULT` intent-filter for `ohsshield://auth-callback`, `redirectTo` on reset/invite/resend, a `SetPasswordScreen`, and a `PasswordSetupGate` the router holds the user against until a password exists. The gate is a `ChangeNotifier` because GoRouter's `refreshListenable` only accepts `Listenable`s (as `splashGateProvider` already does).
+
+**The two flows need different detection — and this is the part worth remembering.** A reset emits `passwordRecovery`. An **invite emits a plain `signedIn`, indistinguishable from an ordinary login**. Rather than guess from events, **migration 0020** moves activation from email confirmation to password creation, so `user_profiles.status = 'invited'` means exactly "onboarding unfinished".
+
+0011 had activated on `email_confirmed_at`, which fires the moment the invite link opens — *before* any password exists. The profile therefore claimed to be set up while the account was unusable: the invitee got one working session, then was locked out permanently. Server state is also better than an event because it **survives the app being killed mid-flow** — the user is re-gated on next launch instead of stranded. Activation stays `SECURITY DEFINER` for 0011's original reason: the client must never write `user_profiles` (Administrator-only, 0010).
+
+`SetPasswordController` invalidates `currentUserProvider` **before** clearing the gate: the trigger flips the profile server-side, so a stale cached `invited` would immediately re-raise the gate and trap the user on the screen.
+
+### 21.1 D-auth-2 — the cold-start race
+
+With everything above in place, the link opened the app and landed on the **dashboard**. logcat showed the link arriving intact (`…#access_token=…&type=recovery`), and re-firing the identical link at an already-running app reached the set-password screen correctly.
+
+The difference is startup. Tapping a link in a mail client **cold-starts** the process; `supabase_flutter` handles it during startup and `passwordRecovery` can fire before Riverpod has built any provider. A listener created afterwards never sees it — the event is gone, and the user holds a session they cannot recreate. Warm launches worked *because* the gate already existed.
+
+**Fix:** the subscription starts in `main()`, after `Supabase.initialize()` and before `runApp`, parking the result in a `ValueNotifier` the gate reads. The gate checks that value on creation **and** listens to it, since startup ordering is not guaranteed and covering only one leaves a narrower version of the same race.
+
+**Lesson: a stream listener only sees the future.** When the event you care about can be *caused by* the thing that starts your app, subscribing from inside the app is too late by construction. Verified warm; the cold-start path is reasoned, not yet observed.
+
+### 21.2 Findings that are go-live blockers, not bugs
+
+- **The built-in SMTP allows roughly 2–4 emails per hour, project-wide.** It is a smoke-test service. A handful of invites exhausts it — we exhausted it during this very test. **Production needs custom SMTP** (Authentication → Emails → SMTP Settings); it also fixes deliverability, since the shared sender is frequently filtered to spam.
+- **A custom scheme only resolves on a device with the app installed.** An invite opened on a desktop browser does nothing. Acceptable if staff read mail on the phone; otherwise this needs an **Android App Link** (an `https://` URL plus a hosted `assetlinks.json`). `AUTH_REDIRECT_URL` is a dart-define and a function secret, so switching later is configuration, not a rewrite.
+- **`redirectTo` failures are silent.** GoTrue returns `200` whether or not the URL is allowlisted — it falls back to Site URL rather than erroring, deliberately, so the allowlist cannot be probed. There is no way to confirm Redirect URLs are correct except an end-to-end test.
+
+**Configuration required per project:** Site URL **and** Redirect URLs both set to `ohsshield://auth-callback`. Setting `AUTH_REDIRECT_URL` is optional while it matches the built-in default.
+
 ## 7. Open Questions / Deviations Log
 - **OQ1:** Confirm `companies` table addition (D1) at Prompt 2A.
 - **OQ2:** Confirm typed-FK linkage vs. untyped polymorphic (D2) at Prompt 2A.
