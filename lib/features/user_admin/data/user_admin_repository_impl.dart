@@ -11,7 +11,24 @@ import 'package:ohs_shield_tracker/features/user_admin/domain/repositories/user_
 import 'package:ohs_shield_tracker/repositories/base_repository.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-const _selectGraph = '*, users(email), user_roles(site_id, department_id, roles(code))';
+/// `user_roles` is nested **under** `users`, and names its foreign key.
+///
+/// Two separate PostgREST constraints apply here:
+///
+/// 1. Embedding only works across a real foreign key, and `user_profiles` and
+///    `user_roles` are **siblings** — both reference `users(id)`, neither
+///    references the other. Embedding `user_roles` directly from
+///    `user_profiles` fails with PGRST200 ("Could not find a relationship … in
+///    the schema cache"), which is what the Users screen surfaced as
+///    "Couldn't load users". Going through `users` follows FKs that exist.
+///
+/// 2. `user_roles` has **two** FKs to `users` — `user_id` and `granted_by` — so
+///    an unqualified embed is ambiguous (PGRST201). Naming
+///    `!user_roles_user_id_fkey` picks the role holder rather than whoever
+///    granted the role; without it PostgREST refuses to guess, and guessing
+///    wrong would silently list each grantor's roles against the wrong user.
+const _selectGraph =
+    '*, users(email, user_roles!user_roles_user_id_fkey(site_id, department_id, roles(code)))';
 
 final class UserAdminRepositoryImpl extends BaseRepository implements UserAdminRepository {
   UserAdminRepositoryImpl(this._client, LoggerService logger) : super(logger);
@@ -108,8 +125,11 @@ final class UserAdminRepositoryImpl extends BaseRepository implements UserAdminR
   }
 
   ManagedUser _map(Map<String, dynamic> row) {
-    final email = (row['users'] as Map?)?['email']?.toString() ?? '';
-    final roleRows = (row['user_roles'] as List?) ?? const [];
+    final user = row['users'] as Map?;
+    final email = user?['email']?.toString() ?? '';
+    // Roles arrive nested under `users` — see _selectGraph for why they cannot
+    // be embedded directly from user_profiles.
+    final roleRows = (user?['user_roles'] as List?) ?? const [];
     final roles = <RoleAssignment>[
       for (final r in roleRows)
         RoleAssignment(
