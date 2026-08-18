@@ -71,8 +71,14 @@ class InspectionDto with _$InspectionDto {
         scheduledDate: scheduledDate != null ? DateTime.tryParse(scheduledDate!) : null,
         conductedAt: conductedAt != null ? DateTime.tryParse(conductedAt!) : null,
         score: score?.toDouble(),
-        items: (overrideItems ?? items?.map((e) => e.toEntity()).toList() ?? const [])
-          ..sort((a, b) => a.position.compareTo(b.position)),
+        // Copy before sorting. Both fallbacks can hand back an unmodifiable
+        // list — `const []` here, and `list()` passes `overrideItems: const []`
+        // because the list query does not fetch items — so sorting in place
+        // threw for every row and the caller's catch reported it as "server
+        // unavailable". List.of also accepts the Iterable from map() directly.
+        items: List<InspectionItem>.of(
+          overrideItems ?? items?.map((e) => e.toEntity()) ?? const [],
+        )..sort((a, b) => a.position.compareTo(b.position)),
         version: version,
       );
 }
