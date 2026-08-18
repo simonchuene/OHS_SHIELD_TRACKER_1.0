@@ -107,8 +107,12 @@ declare
   v_user_password  text := 'ChangeMe!User1';
   v_user_first     text := 'Test';
   v_user_last      text := 'Employee';
+  -- Typed as the role_code ENUM, not text: public.roles.code is that enum, and
+  -- there is no implicit text -> enum cast (ERROR 42883). Declaring it typed also
+  -- rejects a bad value immediately, before anything is written, with Postgres's
+  -- own "invalid input value for enum role_code" rather than a late failure.
   -- employee | supervisor | safety_officer | manager | administrator
-  v_user_role_code text := 'employee';
+  v_user_role_code role_code := 'employee';
 
   v_company_name   text := 'My Company';
   v_company_code   text := 'MAIN';
@@ -173,7 +177,9 @@ begin
 
   select id into v_role from public.roles where code = v_user_role_code;
   if v_role is null then
-    raise exception 'Unknown role code: % (expected employee|supervisor|safety_officer|manager|administrator)', v_user_role_code;
+    -- The value is a valid enum member (the declaration guarantees that), so a
+    -- miss here means the roles reference table was never seeded.
+    raise exception 'Role % is not present in public.roles — run the schema seed first.', v_user_role_code;
   end if;
 
   insert into public.user_roles (user_id, role_id, company_id, granted_by)
