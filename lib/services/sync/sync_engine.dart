@@ -58,7 +58,10 @@ class SyncEngine {
     if (_running) return; // single drain at a time
     _running = true;
     try {
-      final due = await _db.dueEntries(DateTime.now());
+      // Scoped to the signed-in user: entries are pushed under the current
+      // session, so another user's queued mutation could only be sent with the
+      // wrong identity.
+      final due = await _db.dueEntries(DateTime.now(), userId: _client.auth.currentUser?.id);
       for (final entry in due) {
         await _process(entry);
       }

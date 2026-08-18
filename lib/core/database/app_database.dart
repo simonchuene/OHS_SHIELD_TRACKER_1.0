@@ -84,12 +84,33 @@ class ReportHistoryEntries extends Table {
   Set<Column> get primaryKey => {id};
 }
 
-@DriftDatabase(tables: [SyncQueueEntries, CachedRecords, PendingUploads, ReportHistoryEntries])
+/// Which signed-in user this device's local data belongs to. Single row.
+///
+/// The cache is not tenant-scoped — [CachedRecords] is keyed only by
+/// (entityType, entityId), and every list screen merges the whole cache into
+/// its results. That is safe only while the cache holds exactly one user's
+/// data, so this row is the guard: when a *different* user signs in, the local
+/// store is wiped before anything can read it. Without it, signing into
+/// company B on a device that previously held company A's data renders A's
+/// rows alongside B's, since the server filter never sees the cached copies.
+///
+/// Kept in Drift rather than secure storage so the check and the wipe happen in
+/// one transaction, and so it survives the app being killed mid-switch.
+class LocalOwner extends Table {
+  IntColumn get id => integer().withDefault(const Constant(0))(); // always 0
+  TextColumn get userId => text()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+@DriftDatabase(
+    tables: [SyncQueueEntries, CachedRecords, PendingUploads, ReportHistoryEntries, LocalOwner],)
 class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor]) : super(executor ?? _open());
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -97,8 +118,62 @@ class AppDatabase extends _$AppDatabase {
         onUpgrade: (m, from, to) async {
           if (from < 2) await m.createTable(pendingUploads);
           if (from < 3) await m.createTable(reportHistoryEntries);
+          if (from < 4) {
+            await m.createTable(localOwner);
+            // Existing installs carry data whose owner was never recorded. It
+            // may belong to anyone, so it cannot be trusted: drop it and let
+            // the next sign-in repopulate from the server.
+            await clearLocalData();
+          }
         },
       );
+
+  // --- Tenant/user isolation of local data --------------------------------
+
+  /// Wipes every trace of the previous user's data. Deliberately includes the
+  /// outbox: a queued mutation carries the old user's `company_id`, so pushing
+  /// it under a new session can only ever fail RLS, and leaving it behind means
+  /// a permanent unexplained sync failure.
+  Future<void> clearLocalData() async {
+    await batch((b) {
+      b.deleteWhere(cachedRecords, (_) => const Constant(true));
+      b.deleteWhere(syncQueueEntries, (_) => const Constant(true));
+      b.deleteWhere(pendingUploads, (_) => const Constant(true));
+      b.deleteWhere(reportHistoryEntries, (_) => const Constant(true));
+    });
+  }
+
+  /// Claims the local store for [userId], clearing it first if it currently
+  /// belongs to someone else. Call before any cached read for a newly resolved
+  /// session. Returns true when data was discarded.
+  ///
+  /// A missing owner row means the store predates this check (or was just
+  /// cleared), so it is claimed without a wipe only when it is also empty;
+  /// otherwise the data is of unknown origin and goes.
+  Future<bool> claimForUser(String userId) async {
+    return transaction(() async {
+      final current = await select(localOwner).getSingleOrNull();
+      if (current?.userId == userId) return false;
+
+      final hadData = current != null ||
+          await (selectOnly(cachedRecords)..addColumns([cachedRecords.entityId]))
+              .get()
+              .then((r) => r.isNotEmpty);
+      if (hadData) await clearLocalData();
+
+      await into(localOwner).insertOnConflictUpdate(
+        LocalOwnerCompanion(id: const Value(0), userId: Value(userId)),
+      );
+      return hadData;
+    });
+  }
+
+  /// Releases the store on sign-out so nothing survives to be shown to whoever
+  /// signs in next — including on a device that is handed over.
+  Future<void> releaseLocalData() async {
+    await clearLocalData();
+    await delete(localOwner).go();
+  }
 
   // --- Outbox -------------------------------------------------------------
 
@@ -106,11 +181,19 @@ class AppDatabase extends _$AppDatabase {
       into(syncQueueEntries).insert(entry);
 
   /// Pending entries whose backoff window has elapsed, oldest first (FIFO).
-  Future<List<SyncQueueEntry>> dueEntries(DateTime now) {
+  ///
+  /// [userId] restricts the drain to the signed-in user's own mutations. Entries
+  /// are pushed under whatever session is current, so an entry authored by a
+  /// different user would be sent with the wrong identity — the server refuses
+  /// it (42501), but the entry then retries forever. `claimForUser` normally
+  /// clears these already; this is the second line of defence.
+  Future<List<SyncQueueEntry>> dueEntries(DateTime now, {String? userId}) {
     return (select(syncQueueEntries)
-          ..where((t) =>
-              t.status.equals('pending') &
-              (t.nextAttemptAt.isNull() | t.nextAttemptAt.isSmallerOrEqualValue(now)),)
+          ..where((t) {
+            final due = t.status.equals('pending') &
+                (t.nextAttemptAt.isNull() | t.nextAttemptAt.isSmallerOrEqualValue(now));
+            return userId == null ? due : due & t.userId.equals(userId);
+          })
           ..orderBy([(t) => OrderingTerm.asc(t.createdAt)]))
         .get();
   }
