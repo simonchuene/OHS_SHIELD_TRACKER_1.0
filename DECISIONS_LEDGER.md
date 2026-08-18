@@ -532,7 +532,42 @@ The actor is always filtered out (§16), so nobody is notified of their own acti
 
 `AppRole.canAssess` / `canVerifyClose` / `canViewAudit` etc. mirror these thresholds client-side, but per architecture §10 they are **affordances only** — the client is untrusted. Where the two disagree, RLS is the answer and the client is the bug.
 
-**The eight pgTAP assertions that would prove these policies behave as described have never executed** (§19). This matrix is read from the policy source, not from observed behaviour — and only one company has ever existed, so the `company_id` isolation above is reviewed but never exercised against a second tenant.
+**The eight pgTAP assertions that would prove these policies behave as described have never executed** (§19). This matrix is read from the policy source, not from observed behaviour.
+
+The `company_id` isolation *has* now been exercised against a second tenant (2026-08-17): six checks with real JWTs from two companies, including direct-id reads of a known foreign row and a cross-tenant insert refused with `42501`, validated against an own-tenant control that returned `201`. **The server holds.** What that did *not* cover is what the app then does with the answer — see §23.
+
+## 23. D-tenant-1 — the App Leaked Across Companies While RLS Was Correct (2026-08-18)
+
+Reported as "I am logged in as a MAMH user but I see data from MAIN". The most serious class of defect this product can have, and it appeared **one day after the isolation checks passed**.
+
+**Both facts are true at once.** The server never served MAIN's rows to a MAMH token. The rows were already on the device, cached from a previous login, and the app rendered them.
+
+Three things combined, none of which is a bug on its own:
+
+| Layer | State |
+|---|---|
+| `CachedRecords` | Keyed `(entityType, entityId)` — **no tenant column** |
+| Sign-out | Cleared the Supabase session, **never the local database** |
+| Every list screen | Merges the **whole** cache into its results |
+
+The list repositories re-apply status, risk band, "mine only" and text filters to the merged set — **company is not among them**, because within a single tenant it never needed to be. So the server's correctly-scoped answer was unioned with whatever the previous account had left behind, across all seventeen `cachedByType` call sites.
+
+**Fix — record ownership, not tenancy.** The obvious repair is a `company_id` column on the cache plus a filter at every read. That was rejected: it requires auditing seventeen call sites and staying correct for the eighteenth. Instead a single-row `LocalOwner` table records **which user the local store belongs to**, and the store is cleared when that changes. One check covers every reader, including ones not yet written. It lives in Drift rather than secure storage so the check and the wipe share a transaction and survive the app being killed mid-switch.
+
+- `claimForUser` runs when a session resolves, **awaited before the router admits any list screen**.
+- `releaseLocalData` runs on sign-out **before** the session is dropped — a device handed to someone else must not still hold the previous user's records, and a failure after sign-out would leave them readable.
+- Data with **no recorded owner** predates the check and is of unknown origin, so it is **discarded rather than adopted**. That is also how the schema 3→4 migration heals devices already carrying mixed data — no reinstall needed.
+- The **outbox is cleared too**, and `drain()` now filters to the signed-in user. An entry queued by another user would be pushed under the current session; the server refuses it (`42501`) but it then retries forever. Second line of defence, since `claimForUser` normally clears it first.
+
+**Lesson — the one worth carrying forward.** *Proving the server isolates tenants says nothing about what the client keeps.* Every isolation check we ran was an API call, and every one passed, while the app on a real device was showing two companies' data at once. Any client that maintains its own copy of server state re-implements the access boundary by omission, and offline-first means we always maintain one. **RLS is necessary and not sufficient; the cache is part of the trust boundary.**
+
+Seven regression tests (`test/core/database/local_owner_isolation_test.dart`) pin the behaviour: same-user re-claim preserves the cache (offline must keep working), a different user wipes both cache and outbox, unowned data is discarded, and sign-out leaves nothing.
+
+### 23.1 Demo data tooling
+
+`supabase/seed_demo_data.sql` populates a company with a linked, plausible body of records — 8 hazards with risk assessments, 5 incidents, 3 investigations, 4 inspections with items, 10 CAPAs spanning all four origins and the full status lifecycle — so dashboards, KPIs and reports demo against something other than empty states.
+
+It **discovers users by role** rather than hardcoding IDs, with fallbacks to the nearest senior person, so it runs against a five-user tenant or a one-user tenant. Rows carry a `DEMO-` prefix and the prior run is deleted first, so re-running yields one clean set. Hazard `risk_level` is left to the 0014 trigger rather than set by hand, and due dates deliberately straddle overdue / due-soon / closed so the overdue KPI and the notification sweep have real work to find. **Demo tenants only — the content is invented.**
 
 ## 7. Open Questions / Deviations Log
 - **OQ1:** Confirm `companies` table addition (D1) at Prompt 2A.
