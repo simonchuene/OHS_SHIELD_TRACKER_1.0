@@ -48,6 +48,7 @@ declare
   v_supervisor uuid;
   v_emp1       uuid;
   v_emp2       uuid;
+  v_verifier   uuid;
   v_anyone     uuid;
 
   -- Record ids we need to wire together.
@@ -114,6 +115,18 @@ begin
   v_supervisor := coalesce(v_supervisor, v_officer);
   v_emp1       := coalesce(v_emp1, v_supervisor, v_anyone);
   v_emp2       := coalesce(v_emp2, v_emp1);
+
+  -- Verification has to read as a second pair of eyes: the app bars an owner
+  -- from verifying their own corrective action (Ledger §22.3). On a small
+  -- tenant the fallbacks above can collapse owner and verifier onto one person,
+  -- so prefer any senior user who is not the owner before accepting that.
+  select ur.user_id into v_verifier from public.user_roles ur
+    join public.roles r on r.id = ur.role_id
+   where ur.company_id = v_company
+     and r.code in ('manager', 'administrator')
+     and ur.user_id <> v_supervisor
+   limit 1;
+  v_verifier := coalesce(v_verifier, v_manager);
 
   -- --- clear the previous demo run ---------------------------------------
   -- Deleting the demo hazards, incidents and inspections cascades to their risk
@@ -307,7 +320,7 @@ begin
      '[]'::jsonb, null, v_hz1, v_supervisor);
 
   update public.incidents
-     set verified_by = v_manager, verified_at = now() - interval '5 days',
+     set verified_by = v_verifier, verified_at = now() - interval '5 days',
          closed_at   = now() - interval '5 days'
    where id = v_in3;
 
@@ -483,7 +496,7 @@ begin
      'Contain and recover the hydraulic oil at the stormwater drain, and fit a '
      'kerb spill kit at the roller door.',
      'high', v_emp1, (now() - interval '6 days')::date, 'closed',
-     null, v_in5, null, null, v_manager, now() - interval '5 days',
+     null, v_in5, null, null, v_verifier, now() - interval '5 days',
      'Drain cleared and spill kit in place. Verified on site.',
      'Spill sock deployed on the day and residue recovered by the contractor. '
      'Kerb spill kit mounted beside the roller door and the dispatch team briefed '
@@ -516,7 +529,7 @@ begin
      'Floor-mark a no-stacking zone at the dispatch south exit and add the '
      'route to the daily housekeeping check.',
      'high', v_supervisor, (now() - interval '20 days')::date, 'closed',
-     null, null, null, v_item_fail2, v_manager, now() - interval '19 days',
+     null, null, null, v_item_fail2, v_verifier, now() - interval '19 days',
      'Zone marked and check sheet updated. Confirmed clear on two follow-up '
      'walk-arounds.',
      'Hatched no-stacking zone painted at the exit and the route added to the '
