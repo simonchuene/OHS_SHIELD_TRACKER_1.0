@@ -1,5 +1,9 @@
 -- OHS Shield Tracker — seed an additional app user at a chosen role.
 --
+-- SUPERSEDED for most purposes by seed_user.sql, which creates the auth user
+-- too and so needs no Dashboard step. Keep using this one only if the auth user
+-- already exists and you have its UID.
+--
 -- Use this to create test users of any rank (employee, supervisor,
 -- safety_officer, manager, administrator) without going through the invite
 -- email flow. The in-app path (More → User & Access Administration → Invite,
