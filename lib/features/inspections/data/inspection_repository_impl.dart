@@ -13,6 +13,7 @@ import 'package:ohs_shield_tracker/features/inspections/domain/inspection_scorin
 import 'package:ohs_shield_tracker/features/inspections/domain/repositories/inspection_repository.dart';
 import 'package:ohs_shield_tracker/repositories/base_repository.dart';
 import 'package:ohs_shield_tracker/services/sync/offline_mutation_service.dart';
+import 'package:ohs_shield_tracker/services/sync/sync_models.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 
@@ -56,7 +57,10 @@ final class InspectionRepositoryImpl extends BaseRepository implements Inspectio
     return run(() async {
       try {
         final row = await _client.from('inspections').select(_graph).eq('id', id).maybeSingle();
-        if (row != null) return InspectionDto.fromJson(row).toEntity();
+        if (row != null) {
+          final server = InspectionDto.fromJson(row).toEntity();
+          return server.copyWith(items: await _withPendingItemEdits(server.items));
+        }
       } catch (e, s) {
         logger.warn('getInspection: server unavailable, using cache', e, s);
       }
@@ -72,6 +76,31 @@ final class InspectionRepositoryImpl extends BaseRepository implements Inspectio
       }
       return InspectionDto.fromJson(jsonDecode(inspCache.first.data) as Map<String, dynamic>).toEntity(overrideItems: items);
     }, context: 'getInspection',);
+  }
+
+  /// Overlays item edits that have not reached the server yet.
+  ///
+  /// `setItemResult` queues the change *and* caches the merged row as pending,
+  /// so the mark exists locally the moment it is made. Returning the server row
+  /// untouched showed the item as still unanswered until the outbox drained and
+  /// the screen was rebuilt — and offline, until connectivity came back, on the
+  /// screen most likely to be used somewhere without signal. Hazards and CAPA
+  /// already prefer an unsynced local write for the same reason.
+  Future<List<InspectionItem>> _withPendingItemEdits(List<InspectionItem> serverItems) async {
+    final pending = <String, InspectionItem>{};
+    for (final c in await _db.cachedByType(_item)) {
+      if (c.syncStatus != SyncStatus.pending.name && c.syncStatus != SyncStatus.syncing.name) {
+        continue;
+      }
+      try {
+        pending[c.entityId] =
+            InspectionItemDto.fromJson(jsonDecode(c.data) as Map<String, dynamic>).toEntity();
+      } catch (_) {
+        // Skip malformed cache rows.
+      }
+    }
+    if (pending.isEmpty) return serverItems;
+    return [for (final i in serverItems) pending[i.id] ?? i];
   }
 
   @override

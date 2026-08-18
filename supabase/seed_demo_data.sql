@@ -405,41 +405,44 @@ begin
     (v_ins4, v_company, v_site, v_dept, 'DEMO-INS-004', 'vehicle', v_supervisor,
      'draft', (now() + interval '4 days')::date, null, null);
 
+  -- `position` is 0-based, matching how the app creates items (a plain loop
+  -- index) and how the run screen renders them (`position + 1`). Numbering from
+  -- 1 here made every checklist read as "2, 3, 4...".
   insert into public.inspection_items
     (id, company_id, inspection_id, position, prompt, result, notes)
   values
-    (gen_random_uuid(), v_company, v_ins1, 1,
+    (gen_random_uuid(), v_company, v_ins1, 0,
      'Walkways and aisles clear of obstruction', 'pass', null),
-    (gen_random_uuid(), v_company, v_ins1, 2,
+    (gen_random_uuid(), v_company, v_ins1, 1,
      'Waste and offcuts in designated bins', 'pass', null),
-    (v_item_fail1, v_company, v_ins1, 3,
+    (v_item_fail1, v_company, v_ins1, 2,
      'Floors free of spills and slip hazards', 'fail',
      'Oil film on the walkway beside press 3; granules down but not cleaned up.'),
-    (gen_random_uuid(), v_company, v_ins1, 4,
+    (gen_random_uuid(), v_company, v_ins1, 3,
      'Storage racking loaded within marked limits', 'pass', null),
-    (v_item_fail2, v_company, v_ins1, 5,
+    (v_item_fail2, v_company, v_ins1, 4,
      'Emergency exits and routes unobstructed', 'fail',
      'Dispatch south exit partially blocked by shrink-wrapped pallets.'),
-    (gen_random_uuid(), v_company, v_ins1, 6,
+    (gen_random_uuid(), v_company, v_ins1, 5,
      'Lighting adequate in work areas', 'pass', null),
 
-    (gen_random_uuid(), v_company, v_ins2, 1,
+    (gen_random_uuid(), v_company, v_ins2, 0,
      'Extinguishers in place, sealed and in date', 'pass', null),
-    (gen_random_uuid(), v_company, v_ins2, 2,
+    (gen_random_uuid(), v_company, v_ins2, 1,
      'Hose reels accessible and serviceable', 'pass', null),
-    (gen_random_uuid(), v_company, v_ins2, 3,
+    (gen_random_uuid(), v_company, v_ins2, 2,
      'Detection panel showing no faults', 'pass', null),
-    (gen_random_uuid(), v_company, v_ins2, 4,
+    (gen_random_uuid(), v_company, v_ins2, 3,
      'Assembly point signage legible', 'na',
      'Signage replacement scheduled with the landlord.'),
-    (gen_random_uuid(), v_company, v_ins2, 5,
+    (gen_random_uuid(), v_company, v_ins2, 4,
      'Evacuation drill within the last six months', 'pass', null),
 
-    (gen_random_uuid(), v_company, v_ins3, 1,
+    (gen_random_uuid(), v_company, v_ins3, 0,
      'Eye protection worn in designated areas', 'pass', null),
-    (gen_random_uuid(), v_company, v_ins3, 2,
+    (gen_random_uuid(), v_company, v_ins3, 1,
      'Hearing protection available at point of use', null, null),
-    (gen_random_uuid(), v_company, v_ins3, 3,
+    (gen_random_uuid(), v_company, v_ins3, 2,
      'Safety footwear in serviceable condition', null, null);
 
   -- Link the failed housekeeping items to the hazards they correspond to,
