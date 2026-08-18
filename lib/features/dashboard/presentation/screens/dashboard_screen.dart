@@ -316,7 +316,12 @@ class _SafetyScoreCard extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       child: Row(children: [
         SizedBox(
-          width: 120,
+          // 120 left ~100px beside the 16px icon and its gap, and 'Needs
+          // attention' in bold needs a little more than that — the card
+          // overflowed by 3.9px whenever the score was below 70. The gauge
+          // alongside is Expanded with plenty of slack, so the wider column
+          // costs nothing.
+          width: 140,
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text('Safety Score', style: Theme.of(context).textTheme.titleLarge),
             const Text('Overall risk rating', style: TextStyle(fontSize: 11, color: AppColors.secondaryText)),
@@ -324,7 +329,16 @@ class _SafetyScoreCard extends StatelessWidget {
             Row(children: [
               Icon(score >= 70 ? Icons.trending_up_rounded : Icons.trending_flat_rounded, size: 16, color: AppColors.primaryGreen),
               const SizedBox(width: 4),
-              Text(score >= 70 ? 'Great work!' : 'Needs attention', style: const TextStyle(fontWeight: FontWeight.w700, color: AppColors.primaryGreen)),
+              // Flexible so a larger system font wraps instead of overflowing,
+              // matching how the delta row below already behaves. The width
+              // above keeps it on one line at normal scale.
+              Flexible(
+                child: Text(
+                  score >= 70 ? 'Great work!' : 'Needs attention',
+                  maxLines: 2,
+                  style: const TextStyle(fontWeight: FontWeight.w700, color: AppColors.primaryGreen),
+                ),
+              ),
             ],),
             const SizedBox(height: 2),
             Text(band == RiskBand.low ? 'Low overall risk' : '${band.label} overall risk', style: const TextStyle(fontSize: 11, color: AppColors.secondaryText)),

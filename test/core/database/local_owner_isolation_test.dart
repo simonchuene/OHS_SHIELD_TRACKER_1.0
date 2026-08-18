@@ -45,7 +45,7 @@ void main() {
 
     expect(await db.claimForUser('user-b'), isTrue);
     expect(await cachedCount(), 0,
-        reason: "company A's rows must not survive into B's session");
+        reason: "company A's rows must not survive into B's session",);
   });
 
   test('a different user wipes the outbox too', () async {
@@ -62,7 +62,7 @@ void main() {
 
     await db.claimForUser('user-b');
     expect(await db.dueEntries(DateTime.now()), isEmpty,
-        reason: "A's queued mutation would be pushed under B's session");
+        reason: "A's queued mutation would be pushed under B's session",);
   });
 
   test('unowned pre-existing data is discarded rather than adopted', () async {
