@@ -569,6 +569,37 @@ Seven regression tests (`test/core/database/local_owner_isolation_test.dart`) pi
 
 It **discovers users by role** rather than hardcoding IDs, with fallbacks to the nearest senior person, so it runs against a five-user tenant or a one-user tenant. Rows carry a `DEMO-` prefix and the prior run is deleted first, so re-running yields one clean set. Hazard `risk_level` is left to the 0014 trigger rather than set by hand, and due dates deliberately straddle overdue / due-soon / closed so the overdue KPI and the notification sweep have real work to find. **Demo tenants only — the content is invented.**
 
+**Seeded into MAMH (Manaka Amasenya Holdings) on 2026-08-18:** 8 hazards, 7 risk assessments, 5 incidents, 3 investigations, 4 inspections, 14 items, 10 CAPAs. Bands came back from the trigger correctly (20→critical, 9→medium, unassessed→null).
+
+One fallback needed correcting first. MAMH has an employee and **two administrators** — no manager, officer or supervisor — so the role fallbacks collapsed owner and verifier onto the same person on the closed CAPAs, contradicting §22.3. The script now resolves a verifier distinct from the owner before accepting that. **A fallback chain that is individually sensible at each step can still produce a nonsensical whole**; the shape only shows up against a real roster.
+
+Also worth recording: `supabase db query --linked` executes SQL against the hosted project through the Management API — no Docker, no `psql`, no stored DB password. That is the working path for remote SQL on this workstation, where `supabase start` has never run (§19).
+
+### 23.2 D-audit-1 — the audit trigger made two tables insert-only (2026-08-18)
+
+Found by running §23.1's seed script, which failed on a plain `update public.inspection_items` with `42703: record "new" has no field "status"`.
+
+0012's `audit_row_change()` guards its status-transition branch with:
+
+```sql
+if (to_jsonb(new) ? 'status') and (new.status is distinct from old.status)
+```
+
+**The intent is right and the mechanism cannot work.** PL/pgSQL hands the whole boolean to the SQL engine as a single expression, so `new.status` must resolve **when that expression is planned** — before the `?` test written to protect it ever executes. On a table without the column it is a plan-time failure, and `and` short-circuiting never gets the chance to help. The guard reads as defensive and is inert.
+
+Two audited tables have no `status` column, and both were left **insert-only**:
+
+| Table | Trigger | What broke |
+|---|---|---|
+| `inspection_items` | 0015 | `setItemResult` enqueues an UPDATE for **every pass/fail an inspector records** — conducting an inspection failed at the first mark |
+| `risk_assessments` | 0014 | Any revision to an assessment failed |
+
+**INSERT worked on both**, which is precisely how this survived from Prompt 12: records could be created but never edited, and nothing in the build ever edited one.
+
+**Fix (0021):** compare through jsonb (`v_after->>'status' is distinct from v_before->>'status'`), so no column reference is compiled against the row type and the guard is genuinely evaluated at runtime. Tables that do have `status` are unaffected — `->>` yields text on both sides and `is distinct from` handles a missing key as NULL correctly.
+
+**Two lessons.** First, *a runtime guard cannot protect a compile-time reference* — in PL/pgSQL the whole expression is planned before any of it runs, so `?`-style existence tests must be paired with jsonb access, never with field access. Second, and consistent with §15.2, §20, §21 and §23: **this is another defect in code recorded complete that had never executed on the path that breaks it** — the dominant failure mode of this whole session. The pgTAP suite would not have caught it either: it asserts policies, not triggers. Inspections have no write-path test at any layer.
+
 ## 7. Open Questions / Deviations Log
 - **OQ1:** Confirm `companies` table addition (D1) at Prompt 2A.
 - **OQ2:** Confirm typed-FK linkage vs. untyped polymorphic (D2) at Prompt 2A.
