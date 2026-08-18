@@ -63,6 +63,7 @@
 
 ## 5. Security & RBAC Decisions (set in Prompts 1, 2B, 5)
 - **RLS scoping claim source:** (D3, IMPLEMENTED in 0006) `app.*` `SECURITY DEFINER` helpers — `app.current_company_id()`, `app.current_site_id()`, `app.current_department_id()`, `app.user_rank()`, `app.has_min_rank(n)` — reading `user_profiles`/`user_roles` keyed on `auth.uid()`. JWT-claims hook deferred (DEV2).
+- **As-built access matrix:** §22 records what the policies actually enforce — including the *visibility* tiers (which narrow by exact rank, not "at least") and the owner exceptions. §5 states intent; §22 states implementation.
 - **RLS rank ladder:** employee=1 · supervisor=2 · safety_officer=3 · manager=4 · administrator=5. Visibility ladder: own(1)→dept(2)→site(3)→enterprise(4–5). Role write-gates enforced in `WITH CHECK` (close hazard/incident ⇒ ≥3; CAPA verification/closed ⇒ ≥3; manage user_roles ⇒ ≥5).
 - **Storage (D-rls-1):** private `attachments` bucket; path `<company_id>/<owner_type>/<owner_id>/<version_uuid>.<ext>`; tenant isolation via `foldername[1]=company_id`; physical delete = SO+; logical delete stays app-layer.
 - **Multi-site isolation columns:** `company_id` on all tenant tables; `site_id`/`department_id` where relevant — *(exceptions)* global reference tables (`roles`) are not tenant-scoped.
@@ -475,6 +476,63 @@ The difference is startup. Tapping a link in a mail client **cold-starts** the p
 - **`redirectTo` failures are silent.** GoTrue returns `200` whether or not the URL is allowlisted — it falls back to Site URL rather than erroring, deliberately, so the allowlist cannot be probed. There is no way to confirm Redirect URLs are correct except an end-to-end test.
 
 **Configuration required per project:** Site URL **and** Redirect URLs both set to `ohsshield://auth-callback`. Setting `AUTH_REDIRECT_URL` is optional while it matches the built-in default.
+
+## 22. As-Built Access Matrix (2026-08-17)
+
+What the **database actually enforces**, read out of `0007_rls_policies.sql` plus the later RLS migrations, rather than restated from the Master Prompt matrix. Written down because two things here are not in that matrix: the *visibility* scopes (which narrow differently from the action gates), and the owner exceptions added in §10/§17. Complements §5's rank ladder; §5 states the intent, this states the implementation.
+
+**One rule sits above all of it:** every policy is `and company_id = app.current_company_id()`. Nothing crosses a company boundary at any rank, Administrator included.
+
+### 22.1 Actions
+
+| Action | Emp (1) | Sup (2) | SO (3) | Mgr (4) | Admin (5) |
+|---|:--:|:--:|:--:|:--:|:--:|
+| Report hazard / incident · add attachments | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Risk assessment · investigation · create/assign CAPA · inspections | — | ✅ | ✅ | ✅ | ✅ |
+| **Verify & close CAPA · close hazard / incident** | — | — | ✅ | ✅ | ✅ |
+| View audit log | — | — | ✅ | ✅ | ✅ |
+| Manage users & roles · sites · departments | — | — | — | — | ✅ |
+
+### 22.2 Visibility — and it is **exact-rank**, not "at least"
+
+The hazard/incident/inspection policies test `app.user_rank() = 3` and `= 2` for the site and department tiers, with `has_min_rank(4)` for enterprise. So the tiers are mutually exclusive by construction; a Manager does not fall through the Safety Officer branch, they match the enterprise one.
+
+| Entity | Mgr / Admin | Safety Officer | Supervisor | Employee |
+|---|---|---|---|---|
+| Hazards · incidents · inspections | Whole company | Their **site** | Their **department** | Own only (reporter / inspector) |
+| CAPAs | Whole company | Their site | Their **site** (see below) | Own only (`owner_id`) |
+| Risk assessments | All | All | All | Only on hazards they reported |
+| Audit log | All | All | — | — |
+| `user_profiles` / `user_roles` | Company-wide read | Company-wide read | Company-wide read | **Company-wide read** |
+| Notifications | Own only | Own only | Own only | Own only |
+
+- **CAPA Supervisor scope is site, not department** — `corrective_actions` carries no `department_id`, so the intended narrowing degrades to site. Pre-existing deviation (DEV3), restated here because the asymmetry with hazards is easy to mistake for a bug.
+- **`user_profiles` is readable company-wide at every rank.** Required by the owner pickers and the assignee names added in §15/§16, but it means an Employee can enumerate colleagues' names, job titles and phone numbers. **POPIA data-minimisation decision that should be made explicitly rather than inherited** — flagged in §7.
+
+### 22.3 The owner exception — the only rule that is not rank-based
+
+A CAPA's assigned owner may, **at any rank**:
+
+- **Start work** — Assigned → In Progress (§10, RLS 0016)
+- **Submit for verification** — In Progress → Verification (§17, RLS 0018)
+
+**Closing remains Safety Officer+.** An owner may hand work back but never accept their own — the separation of duties that matters. It is enforced in three places that must agree: the `capa_update` `WITH CHECK` (authoritative), `CapaWorkflow.canTransition`, and the client affordance. §15.6's end-to-end run is what verifies they still do.
+
+### 22.4 Notification audiences
+
+| Trigger | Recipients |
+|---|---|
+| `hazard.created` · `incident.created` · `risk.assessed` · `investigation.due` · `capa.verification_due` | Safety Officer+ |
+| `capa.assigned` · `capa.overdue` | The owner only, any rank |
+| `inspection.due` | The assigned inspector |
+
+The actor is always filtered out (§16), so nobody is notified of their own action.
+
+### 22.5 Standing caveat
+
+`AppRole.canAssess` / `canVerifyClose` / `canViewAudit` etc. mirror these thresholds client-side, but per architecture §10 they are **affordances only** — the client is untrusted. Where the two disagree, RLS is the answer and the client is the bug.
+
+**The eight pgTAP assertions that would prove these policies behave as described have never executed** (§19). This matrix is read from the policy source, not from observed behaviour — and only one company has ever existed, so the `company_id` isolation above is reviewed but never exercised against a second tenant.
 
 ## 7. Open Questions / Deviations Log
 - **OQ1:** Confirm `companies` table addition (D1) at Prompt 2A.
