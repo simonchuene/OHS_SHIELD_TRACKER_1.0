@@ -4,7 +4,7 @@
 
 ## How to use this file
 
-- The existing `DECISIONS_LEDGER.md` (§1–§24) is the **MVP 1 build record** and remains **frozen**. Do not rewrite its history, and do not edit its §2 locked domain values — they are restated from `MVP1_2.md`, not owned by the ledger. §24 was appended after this addendum was first drafted, to record MVP 1 work that had landed after §23 (inspection fixes, migration `0022`, the invite-gate reorder); it closes the MVP 1 record.
+- The existing `DECISIONS_LEDGER.md` (§1–§24) is the **MVP 1 build record** and remains **frozen**. Do not rewrite its history, and do not edit its §2 locked domain values — they are restated from `MVP1_2.md`, not owned by the ledger. §24 was appended after this addendum was first drafted, to record MVP 1 work that had landed after §23 (inspection fixes, migration `0022`, the invite-gate reorder); it closes the MVP 1 record. MVP 1 **pre-flight** outcomes (Part E) are still MVP 1 work, so they are appended under §24 as they land (e.g. §24.5, the pgTAP rewrite) — nothing above §24 is edited.
 - **Migration numbering:** MVP 1 ends at `0022_references_and_capa_due_dates.sql`. **The first MVP 2 migration is `0023`.** References below to "the 0021 audit trigger" mean the *0021-fixed form* of `audit_row_change()`, not a migration number to reuse.
 - This addendum owns the **new** domain values introduced by MVP 2 and MVP 3 (capabilities, new status enums, new notification triggers, entitlement model, persona configs, canonical-score contract, vector partitioning, audit-import policy).
 - **Fill a slot only after the relevant prompt's output has been human-approved AND its effect observed.** Blank is honest; pre-filled is the exact failure mode `DECISIONS_LEDGER.md` §10–§23 keeps warning about ("a feature is done when its effect is observed, not when its code exists"). Leave `___` until then.
@@ -180,7 +180,8 @@ Not part of MVP 2/3, but **MVP 3 assumes MVP 1 and MVP 2 are deployed**, so thes
 |---|---|---|
 | CI green end-to-end (it had **never** passed before §19) | §19 | ___ |
 | Release build (`flutter build appbundle --release --flavor prod`) — **never run on any toolchain** | §19 | ___ |
-| The 8 pgTAP RLS assertions — **have never executed**; §22 is read from policy source, not observed behaviour | §22.5 | ___ |
+| The 8 pgTAP RLS assertions — **have never executed**; §22 is read from policy source, not observed behaviour | §22.5 → **§24.5** | **Superseded.** The original suite now executes but could not test RLS (ran as table owner, no fixture). Rewritten as 35 assertions with fixtures, role switching and paired controls — **awaiting first CI run** ___ |
+| Migration replay from an empty database | §24.5 | **Observed** — `supabase db reset` passes in CI run #24 (`6f856c4`) |
 | Custom SMTP (built-in allows ~2–4 emails/hour, project-wide) | §21.2 | ___ |
 | Android App Link (a custom scheme does not resolve on desktop-opened invites) | §21.2 | ___ |
 | Remove the DEBUG-ONLY corporate-CA trust before any release build | MVP1_2.md | ___ |

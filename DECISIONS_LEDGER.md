@@ -634,6 +634,31 @@ Nothing had ever written `reference` / `action_code`, although 0003 describes th
 
 Reordered: everything that can refuse an invite now runs before the side effect. The seat-entitlement insertion point §5a reserved now exists in code as `assertSeatAvailable(companyId)` — always allowing in MVP 1, called before the invite, so a future refusal leaves nothing behind. **§5a promised this point; until now it existed only in prose.** Filled in by MVP 2 Prompt 4.
 
+### 24.5 The pgTAP suite ran — and could not test RLS
+
+§22.5 says the eight pgTAP assertions "have never executed". That stopped being true once CI's `supabase start` was trimmed to Postgres-only (§19): CI run #24 (`6f856c4`) shows `supabase start` **and `supabase db reset` passing**, and the job failing only at `supabase test db`. So **all 22 migrations replay cleanly from an empty database** — the "never replayed from empty" pre-flight item is now observed in CI — and the suite itself is what fails.
+
+**Why it failed, and why passing would not have helped.** (Reasoned from the file; GitHub withholds job logs without sign-in, so the failing assertions were not read from output.)
+
+- **It never switched role.** Every assertion ran as `postgres`, which owns the tables. A table owner bypasses RLS entirely, and `0007`'s `revoke` on `audit_logs` covers only `authenticated` and `anon`.
+- **It had no fixture.** `seed.sql` inserts only `roles`, so the impersonated users existed nowhere: `auth.uid()` pointed at nobody and `app.current_company_id()` was null.
+
+The consequence: the two `audit_logs` write tests and the "supervisor cannot close" test updated zero rows and raised nothing, so they failed. The five that passed proved nothing about RLS — two passed on constraint violations (null company, missing FK), two because the database was empty, and one (`count(*) >= 0`) cannot fail. **RLS had no automated coverage at any point in MVP 1**, while CI's `Build` and `Deploy` jobs sat behind a gate that could not detect what it existed to catch.
+
+**Rewritten (`supabase/tests/rls_smoke_test.sql`, 35 assertions)** under five rules, each closing one of the ways the original passed or failed for the wrong reason:
+
+1. Fixtures are built as `postgres`; every access assertion runs under `set local role authenticated`.
+2. Ground-truth checks run before the switch — the rows a test expects not to see are proven to exist.
+3. Identity checks prove the impersonated users resolve to a company and rank.
+4. Every refusal is paired with a **control**: the same action succeeding for a user who is allowed.
+5. Refusals assert the exact SQLSTATE `42501`, which a `NOT NULL` (`23502`) or FK (`23503`) failure cannot satisfy.
+
+Two PostgreSQL behaviours are designed around rather than assumed: rows failing a policy's `USING` are **skipped, not refused** (asserted with `is_empty(... RETURNING ...)`), and the "cannot close" tests use callers who can **see** the row, so the refusal comes from `WITH CHECK` and not from invisibility.
+
+Coverage: tenant isolation in both directions and at Administrator rank, exact-rank visibility (§22.2), the risk-assessment and close rank gates, audit read scoping and write immutability, the CAPA owner exception (0018, §22.3), and Administrator-only user management.
+
+**Status: written, not yet executed** — the only runner is CI, since `supabase start` needs Docker and this workstation cannot run it. Result recorded here when CI reports: ___
+
 ### 24.4 Open at the close of MVP 1
 
 - Auto-generated hazards are always categorised `physical`, whatever failed (`inspection-item-fail`).
