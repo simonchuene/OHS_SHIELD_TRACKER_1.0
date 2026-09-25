@@ -55,7 +55,26 @@ jobs:
       # Service names come from `supabase start --help` for the pinned CLI.
       - run: supabase start -x gotrue,realtime,storage-api,imgproxy,mailpit,studio,edge-runtime,logflare,vector,supavisor
       - run: supabase db reset          # applies migrations + seed
-      - run: supabase test db            # runs supabase/tests/*.sql (pgTAP)
+      # Runs supabase/tests/*.sql (pgTAP). GitHub withholds job logs from anyone
+      # without repo-admin rights, but serves annotations through the public
+      # API — so on failure the output is re-published as annotations, and the
+      # failing assertion can be read without signing in. GitHub caps error
+      # annotations at 10 per step: up to 9 go to the individual failure lines,
+      # the tenth carries the tail of the full output. Workflow-command data
+      # must encode % and line breaks (%25, %0D, %0A).
+      - name: Run pgTAP (supabase test db)
+        run: |
+          set +e
+          supabase test db 2>&1 | tee pgtap.log
+          status=${PIPESTATUS[0]}
+          if [ "$status" -ne 0 ]; then
+            grep -E '^(not ok|# |psql:)|ERROR|FATAL|[Ee]rror' pgtap.log | head -n 9 \
+              | sed -e 's/%/%25/g' -e 's/\r//g' \
+              | while IFS= read -r line; do printf '::error title=pgTAP::%s\n' "$line"; done
+            printf '::error title=pgTAP output tail::%s\n' \
+              "$(tail -n 60 pgtap.log | sed -e 's/%/%25/g' -e 's/\r//g' | awk 'BEGIN { ORS = "%0A" } { print }')"
+          fi
+          exit "$status"
 
   build:
     name: Build (Android AAB)

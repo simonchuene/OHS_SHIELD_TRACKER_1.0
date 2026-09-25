@@ -643,7 +643,7 @@ Reordered: everything that can refuse an invite now runs before the side effect.
 - **It never switched role.** Every assertion ran as `postgres`, which owns the tables. A table owner bypasses RLS entirely, and `0007`'s `revoke` on `audit_logs` covers only `authenticated` and `anon`.
 - **It had no fixture.** `seed.sql` inserts only `roles`, so the impersonated users existed nowhere: `auth.uid()` pointed at nobody and `app.current_company_id()` was null.
 
-The consequence: the two `audit_logs` write tests and the "supervisor cannot close" test updated zero rows and raised nothing, so they failed. The five that passed proved nothing about RLS — two passed on constraint violations (null company, missing FK), two because the database was empty, and one (`count(*) >= 0`) cannot fail. **RLS had no automated coverage at any point in MVP 1**, while CI's `Build` and `Deploy` jobs sat behind a gate that could not detect what it existed to catch.
+The consequence: the two `audit_logs` write tests and the "supervisor cannot close" test updated zero rows and raised nothing, so they failed. The five that passed proved nothing about RLS — two passed on constraint violations (null company, missing FK), two because the database was empty, and one (`count(*) >= 0`) cannot fail. **RLS had no automated coverage at any point in MVP 1**, while a tagged release's `Deploy` job — which `needs:` this one — sat behind a gate that could not detect what it existed to catch. (`Build` needs only `Analyze & test`; both run only on `v*` tags, so both show "skipped" on every push to `main` regardless of pgTAP.)
 
 **Rewritten (`supabase/tests/rls_smoke_test.sql`, 35 assertions)** under five rules, each closing one of the ways the original passed or failed for the wrong reason:
 
