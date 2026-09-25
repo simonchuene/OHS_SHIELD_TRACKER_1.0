@@ -169,6 +169,7 @@ Restated for convenience from `DECISIONS_LEDGER.md` — **not editable here.** C
 | The actor is filtered out of notification recipients | §16 | All new triggers |
 | Forward-only migrations; never bootstrap uat/prod from a combined file | §13 / D-env-1 | All MVP 2/3 migrations |
 | **Verify at the delivery boundary** — done means *observed*, on a device that did not originate the data | §10, §11, §12 | Every module and every ledger slot above |
+| **Access rules are observed through pgTAP, with a paired control for every refusal.** Iterate against dev with `python supabase/tests/run_linked.py` (rolls back by construction, refuses unsafe suites, checks for leftovers); **CI's `RLS (pgTAP)` is the verdict**, because only a fresh build proves the migrations alone — the hosted project hid §24.6. Read CI failures through the public annotations API, not the job log | §24.5, §24.6, §24.7 | Every capability policy and the medical tier: the "higher rank *without* the capability is denied" cases are pgTAP assertions, each with a control proving the same action succeeds for a holder |
 | "Production-ready" = review-ready first implementation, not a deployable binary | §6 | All generated output |
 
 ---

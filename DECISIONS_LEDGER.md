@@ -669,7 +669,7 @@ Coverage: tenant isolation in both directions and at Administrator rank, exact-r
 
 **First CI run (`fb18bf8`) failed** — not on an assertion. GitHub withholds job logs without repo-admin rights, so `dfd5ad5` made the step re-publish pgTAP failures as annotations, which the public API serves. The annotation showed tests 1–5 passing and the first query as `authenticated` failing with `permission denied for table hazards` — a real defect in the migrations, recorded in §24.6.
 
-**CI result after `0023`: passed.** Run #27 (`108da01`): `supabase db reset` rebuilt the database from all 23 migrations, then `supabase test db` ran the suite to completion — pg_prove passes only when all 35 planned assertions run and pass. **This is the first successful CI run in the repository's history** (27 runs on record, #27 the only success; §19 recorded that CI had never passed). Repeated by run #28 (`f85aa39`), so not a one-off. Scope of that claim: the jobs that run on a push to `main` — `Analyze & test` and `RLS (pgTAP)`. The tag-only release path (`Build`, `Deploy`) has still never executed.
+**CI result after `0023`: passed.** Run #27 (`108da01`): `supabase db reset` rebuilt the database from all 23 migrations, then `supabase test db` ran the suite to completion — pg_prove passes only when all 35 planned assertions run and pass. **This is the first successful CI run in the repository's history** (27 runs on record, #27 the only success; §19 recorded that CI had never passed). Every run since has also passed — #27 through #30 (`108da01`, `f85aa39`, `f5b33b2`, `6765bca`), four consecutive — so not a one-off. Scope of that claim: the jobs that run on a push to `main` — `Analyze & test` and `RLS (pgTAP)`. The tag-only release path (`Build`, `Deploy`) has still never executed.
 
 ### 24.6 The migrations never granted table access
 
@@ -713,6 +713,8 @@ The exception aborts the transaction, so every fixture row rolls back, and it ca
 Exit codes: `0` all passed · `1` assertion failure · `2` suite error before TAP output · `3` refused, or the database changed.
 
 **Verified on every path before commit:** the real suite (35/35, 22 tables unchanged), a failing assertion (exit 1, diagnostics shown), a suite error (exit 2, the database error and its line), a suite containing `commit` (exit 3, refused with no database contact — that file would have saved a row to `roles`), a DO block with `begin`/`end` (runs), and an unrecognised function (reported as a gap, exit 1).
+
+**It lives beside the suites, and CI ignores it.** `supabase test db` runs pg_prove over `supabase/tests/` but only executes `.sql`/`.pg` files — confirmed by run #30 (`6765bca`), the first with `run_linked.py` in that folder, where `RLS (pgTAP)` stayed green. Any other non-SQL file placed there should be checked the same way: a file pg_prove tried to execute would turn the job red.
 
 ## 7. Open Questions / Deviations Log
 - **OQ1:** Confirm `companies` table addition (D1) at Prompt 2A.
