@@ -600,6 +600,46 @@ Two audited tables have no `status` column, and both were left **insert-only**:
 
 **Two lessons.** First, *a runtime guard cannot protect a compile-time reference* — in PL/pgSQL the whole expression is planned before any of it runs, so `?`-style existence tests must be paired with jsonb access, never with field access. Second, and consistent with §15.2, §20, §21 and §23: **this is another defect in code recorded complete that had never executed on the path that breaks it** — the dominant failure mode of this whole session. The pgTAP suite would not have caught it either: it asserts policies, not triggers. Inspections have no write-path test at any layer.
 
+## 24. Closing the MVP 1 Record — Inspections, References and the Invite Gate
+
+Everything below is MVP 1 work that landed after §23.2. `DECISIONS_LEDGER_ADDENDUM.md` treats this ledger as the frozen MVP 1 record, so it has to be complete before MVP 2 begins. **The MVP 1 record ends at this section; MVP 2 migrations begin at `0023`.**
+
+**A note on dates.** The workstation clock ran about ten days slow during this period (the server reported 2026-08-28 while the machine reported 2026-08-18), so commits `6f4b009` through `12c457c` carry 2026-08-18 timestamps regardless of when they were made. Commit order is reliable; commit dates are not.
+
+### 24.1 Three defects the demo seed surfaced after §23.2
+
+- **D-insp-1 — the inspections list had never worked with data in it (`2ae69c7`).** `InspectionDto.toEntity` sorted its items in place, and `list()` passes `overrideItems: const []` for every row. Sorting a const list throws, so every row threw and the repository's catch reported it as "server unavailable" — the screen said "No inspections yet". The detail screen was unaffected (`get()` passes a mutable list), so the feature looked healthy wherever anyone looked. Fixed by copying before sorting; four tests pin it.
+- **D-insp-2 — marks did not appear until the screen was re-entered (`567cdd9`).** `getInspection` returned the server row unconditionally, discarding the pending local write `setItemResult` had just cached. Offline, a mark would have appeared to do nothing at all. Now overlays pending/syncing item edits, the pattern hazards and CAPA already used.
+- **D-ui-3 — the Safety Score card overflowed below a score of 70 (`6f4b009`).** A fixed 120px column fit "Great work!" but not "Needs attention". Widened to 140 with a `Flexible` guard.
+
+**Observed on device:** marking pass/fail through the UI, then submitting — the `inspection-item-fail` edge function's first execution against real data. Both failed items generated a hazard and a CAPA, the fail note carried into the hazard description, and the audit rows carried the app's JWT as actor.
+
+**Same lesson as §23.2, again:** all three needed data to exist before they could fail. The broad `catch` in D-insp-1 is part of the defect — it turned a client-side type error into a plausible empty state, and pointed diagnosis at the server.
+
+### 24.2 Record references and CAPA due dates (migration `0022`, `12c457c`)
+
+Nothing had ever written `reference` / `action_code`, although 0003 describes the hazard one as "assigned on submit"; records were identifiable only by uuid. Auto-generated CAPAs had no due date, which left them invisible to the overdue sweep (§13) — `CapaEscalationRules` returns `none` for a null date.
+
+- **References** `HZ-` / `INC-` / `INS-` / `CA-YYYY-NNNN`, numbered per company per year from a `reference_counters` row claimed with `on conflict do update … returning` (atomic under concurrency; the existing unique constraints are the backstop).
+- **Assigned by trigger, not by callers**, so the app, `inspection-item-fail`, the seed scripts and future writers all get it. The function reads and writes through jsonb — one function serves four tables and cannot repeat §23.2's plan-time failure.
+- **Explicit values are never overwritten** (the `DEMO-` references survive). **Drafts consume no numbers**: hazards and inspections are numbered when they first leave draft, which is what "assigned on submit" meant.
+- **Due dates by priority** — critical 3 days, high 7, medium 14, low 30 — only when none is given and only on insert, so deliberately clearing a date later is respected.
+- **Verified against the linked project:** demo references preserved; the two auto-generated hazards numbered `HZ-2026-0002`/`0003`; a new submitted hazard numbered at insert; a draft numbered only once submitted; critical and low actions dated 3 and 30 days out.
+
+**Known artefact:** the backfill advanced MAMH's counter past every referenced row, including the `DEMO-` ones, so its register continues from `0012`. Conservative (it cannot collide) and confined to tenants holding externally numbered rows. A real tenant starts at `0001`.
+
+### 24.3 The invite gate validates before it sends
+
+`user-admin`'s invite branch called `inviteUserByEmail` **first** and validated the role **after**. That call creates the auth user and sends the email, and neither is reversible, so an unknown role left an orphaned account with a live invite link in someone's inbox. Unreachable from the current UI, whose role dropdown offers only valid codes, but reachable by any direct call.
+
+Reordered: everything that can refuse an invite now runs before the side effect. The seat-entitlement insertion point §5a reserved now exists in code as `assertSeatAvailable(companyId)` — always allowing in MVP 1, called before the invite, so a future refusal leaves nothing behind. **§5a promised this point; until now it existed only in prose.** Filled in by MVP 2 Prompt 4.
+
+### 24.4 Open at the close of MVP 1
+
+- Auto-generated hazards are always categorised `physical`, whatever failed (`inspection-item-fail`).
+- A company-wide employee has no site. Supervisor and safety-officer visibility keys off site and department, so such an employee may sit outside the scopes meant to include them.
+- The pre-flight items in `DECISIONS_LEDGER_ADDENDUM.md` Part E — release build, pgTAP, SMTP, App Link, CA trust, cold-start deep link — are unchanged by this section.
+
 ## 7. Open Questions / Deviations Log
 - **OQ1:** Confirm `companies` table addition (D1) at Prompt 2A.
 - **OQ2:** Confirm typed-FK linkage vs. untyped polymorphic (D2) at Prompt 2A.

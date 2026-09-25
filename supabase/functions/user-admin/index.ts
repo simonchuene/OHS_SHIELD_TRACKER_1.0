@@ -24,6 +24,19 @@ const SERVICE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 // Redirect URLs, and match the app's deep-link intent-filter.
 const AUTH_REDIRECT_URL = Deno.env.get('AUTH_REDIRECT_URL') ?? 'ohsshield://auth-callback';
 
+// SEAT GATE — the insertion point Ledger §5a reserved for licensing, which MVP 2
+// Prompt 4 fills in. Always allows in MVP 1: no seat or entitlement model exists
+// yet. It is called before any side effect of an invite, so a refusal here
+// leaves no auth user and sends no email.
+//
+// Open for Prompt 4 (Addendum M2-3b): whether a seat is consumed at invite
+// (counting `invited` + `active`) or at activation. Activation happens in the
+// 0020 database trigger when the password is first set, not in this function,
+// so an activation-time limit cannot be enforced here alone.
+async function assertSeatAvailable(_companyId: string): Promise<{ ok: true } | { ok: false; reason: string }> {
+  return { ok: true };
+}
+
 // Allowed lifecycle transitions (mirrors domain UserLifecycle in Flutter).
 const ALLOWED: Record<string, string[]> = {
   invited: ['active', 'deactivated'],
@@ -100,12 +113,19 @@ serve(async (req) => {
           role, roleSiteId, roleDepartmentId } = body;
         if (!email || !firstName || !lastName || !role) return json({ error: 'Missing required fields' }, 400);
 
+        // Everything that can refuse the invite runs BEFORE inviteUserByEmail.
+        // That call creates the auth user and sends the email, and neither can
+        // be taken back — so an invalid role used to leave an orphaned account
+        // with a live invite link in someone's inbox.
+        const { data: roleRow } = await admin.from('roles').select('id').eq('code', role).single();
+        if (!roleRow) return json({ error: 'Unknown role' }, 400);
+
+        const seat = await assertSeatAvailable(companyId);
+        if (!seat.ok) return json({ error: seat.reason }, 403);
+
         const { data: invited, error: invErr } = await admin.auth.admin.inviteUserByEmail(email, { redirectTo: AUTH_REDIRECT_URL });
         if (invErr || !invited.user) return json({ error: invErr?.message ?? 'Invite failed' }, 400);
         const newId = invited.user.id;
-
-        const { data: roleRow } = await admin.from('roles').select('id').eq('code', role).single();
-        if (!roleRow) return json({ error: 'Unknown role' }, 400);
 
         const { data: profile, error: pErr } = await admin.from('user_profiles').insert({
           user_id: newId, company_id: companyId, site_id: siteId ?? null,
