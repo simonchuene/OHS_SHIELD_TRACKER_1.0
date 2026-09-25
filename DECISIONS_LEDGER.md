@@ -2,10 +2,12 @@
 
 > Carry **MVP1_2.md (Master Prompt) + this Ledger** into each follow-up prompt instead of pasting full prior outputs.
 > Fill in blank slots as each prompt is approved. Section 2 values are copied from the Master Prompt — restated, not editable here.
+>
+> **MVP 2 / MVP 3:** this ledger is the frozen MVP 1 record (§1–§24). New decisions go in `DECISIONS_LEDGER_ADDENDUM.md`; carry `MVP2.md` / `MVP3.md` + this ledger + the addendum into those prompts.
 
 > **CANONICAL SOURCE OF TRUTH (updated 2026-08-01):** `MVP1_2.md` (adds USER MANAGEMENT & PROVISIONING + 4 admin-only RBAC rows) and `MVP1_Follow_ups_1.md`. These supersede `MVP1_1.md` / `MVP1_Follow_ups.md` (pre-user-management). Follow-up sequence now inserts **Prompt 4C** (before Auth) and **Prompt 5A** (after Auth).
 
-**Last updated after:** Prompt 18 (Deployment — approved) · **MVP1 BUILD SEQUENCE COMPLETE (Prompts 1–18 + 4C/5A/8A)**  ·  **Flutter SDK pinned to:** 3.24.5 (constraint `>=3.24 <4.0`)  ·  **Supabase project ref:** ___ (per-env, set at deploy)
+**Last updated after:** §24.7 (MVP 1 pre-flight — first green CI) · **MVP1 BUILD SEQUENCE COMPLETE (Prompts 1–18 + 4C/5A/8A)**  ·  **Flutter SDK pinned to:** 3.44.6 / Dart 3.12.2 in CI (was 3.24.5 at Prompt 18 — changed by the §19 deviation; pubspec constraint still `>=3.24 <4.0`) · **Supabase CLI:** 2.114.0 (CI + workstation)  ·  **Supabase project ref:** dev `rordxhehhiblevdeppmy`; uat/prod not yet created (D-env-1: build with `supabase db push`, never a combined file) · **Migrations:** `0001`–`0023` (MVP 2 begins at `0024`)
 
 ---
 
@@ -667,7 +669,7 @@ Coverage: tenant isolation in both directions and at Administrator rank, exact-r
 
 **First CI run (`fb18bf8`) failed** — not on an assertion. GitHub withholds job logs without repo-admin rights, so `dfd5ad5` made the step re-publish pgTAP failures as annotations, which the public API serves. The annotation showed tests 1–5 passing and the first query as `authenticated` failing with `permission denied for table hazards` — a real defect in the migrations, recorded in §24.6.
 
-**CI result after `0023`: passed.** Run #27 (`108da01`): `supabase db reset` rebuilt the database from all 23 migrations, then `supabase test db` ran the suite to completion — pg_prove passes only when all 35 planned assertions run and pass. **This is the first successful CI run in the repository's history** (27 runs on record, #27 the only success; §19 recorded that CI had never passed). Scope of that claim: the jobs that run on a push to `main` — `Analyze & test` and `RLS (pgTAP)`. The tag-only release path (`Build`, `Deploy`) has still never executed.
+**CI result after `0023`: passed.** Run #27 (`108da01`): `supabase db reset` rebuilt the database from all 23 migrations, then `supabase test db` ran the suite to completion — pg_prove passes only when all 35 planned assertions run and pass. **This is the first successful CI run in the repository's history** (27 runs on record, #27 the only success; §19 recorded that CI had never passed). Repeated by run #28 (`f85aa39`), so not a one-off. Scope of that claim: the jobs that run on a push to `main` — `Analyze & test` and `RLS (pgTAP)`. The tag-only release path (`Build`, `Deploy`) has still never executed.
 
 ### 24.6 The migrations never granted table access
 
@@ -684,6 +686,25 @@ Every privilege the app used came from **Supabase's default privileges**, applie
 **Rule from here on** (Addendum Part D, `MVP2.md`, `MVP3.md`): the migration that creates a table declares its grants. Consequently MVP 1 ends at `0023`; **MVP 2 begins at `0024`**.
 
 **Lesson.** The suite was rewritten to test RLS and its first real finding was below RLS. A policy is only as good as the privilege beneath it, and a privilege that comes from the platform instead of the repository is a property of one environment, not of the application.
+
+### 24.7 Verifying database behaviour without a local stack
+
+**The constraint.** This workstation cannot run `supabase start` (no Docker/WSL resources, §19), so there is no local database. Two techniques filled the gap during §24.5–§24.6. MVP 2 will need both — every capability policy and the medical tier must be *observed*, not read — so they are recorded as procedure, not anecdote.
+
+**1. Reading a CI failure without repo-admin rights.** GitHub withholds job logs (`403 Must have admin rights`, and "Sign in to view logs" in the browser), even on this public repository. Annotations are public. Since `dfd5ad5`, the pgTAP step re-publishes its failure as up to nine per-line annotations plus one carrying the output tail. Read them with `GET /repos/simonchuene/OHS_SHIELD_TRACKER_1.0/check-runs/{job_id}/annotations`; the job id comes from `GET …/actions/runs/{run_id}/jobs`. No token is needed. A green run publishes nothing, by design. **This is the only reason §24.6 was found**: without it the failure was "exit code 1".
+
+**2. Running the pgTAP suite against the hosted dev project, safely.** `supabase test db --linked` exists but runs pg_prove in Docker. Instead, run the suite as SQL through `supabase db query --linked`, transformed so it **cannot commit**:
+
+- Strip the file's own `begin;` / `rollback;`.
+- Create `temp table _tap(n bigserial primary key, line text)` and `grant all` on it and its sequence to `public`. The assertions run as `authenticated` after the role switch and must still be able to write it.
+- Prefix every `select plan(…)`, assertion and `select * from finish()` with `insert into _tap(line)`.
+- End with `reset role;` and a `do` block that **raises an exception** whose message is `string_agg` of `_tap`.
+
+The exception aborts the transaction, so every fixture row rolls back, and it carries the TAP output back in the error message. That decoding is the only way output returns, because the Management API returns a failed batch's error but not its intermediate results. **Afterwards, always check for leftovers**: companies coded `PGTAP-%`, users `pgtap-%@test.invalid`, and whether the `pgtap` extension remains. Every run in §24.5–§24.6 came back zero.
+
+**What each proves, and what it cannot.** The hosted run proves the **policies and the assertions** against real Supabase. It **cannot** prove a fresh build. Hosted carries platform default privileges and GoTrue's full `auth` schema, and CI's Postgres-only stack has neither. That is exactly why §24.6 was invisible on hosted (35/35) and fatal in CI (5 of 35 ran). **Only CI proves that the migrations alone produce a working database.** Use hosted to iterate on a suite; treat CI as the verdict.
+
+**Not yet in the repository:** the transform lives in a throwaway script. If MVP 2 adopts technique 2, commit it (e.g. `supabase/tests/run_linked.py`) so the procedure is executable rather than described.
 
 ## 7. Open Questions / Deviations Log
 - **OQ1:** Confirm `companies` table addition (D1) at Prompt 2A.
