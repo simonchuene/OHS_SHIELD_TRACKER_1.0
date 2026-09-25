@@ -5,7 +5,7 @@
 ## How to use this file
 
 - The existing `DECISIONS_LEDGER.md` (§1–§24) is the **MVP 1 build record** and remains **frozen**. Do not rewrite its history, and do not edit its §2 locked domain values — they are restated from `MVP1_2.md`, not owned by the ledger. §24 was appended after this addendum was first drafted, to record MVP 1 work that had landed after §23 (inspection fixes, migration `0022`, the invite-gate reorder); it closes the MVP 1 record. MVP 1 **pre-flight** outcomes (Part E) are still MVP 1 work, so they are appended under §24 as they land (e.g. §24.5, the pgTAP rewrite) — nothing above §24 is edited.
-- **Migration numbering:** MVP 1 ends at `0022_references_and_capa_due_dates.sql`. **The first MVP 2 migration is `0023`.** References below to "the 0021 audit trigger" mean the *0021-fixed form* of `audit_row_change()`, not a migration number to reuse.
+- **Migration numbering:** MVP 1 ends at `0023_explicit_table_grants.sql` (a pre-flight fix, Ledger §24.6). **The first MVP 2 migration is `0024`.** References below to "the 0021 audit trigger" mean the *0021-fixed form* of `audit_row_change()`, not a migration number to reuse.
 - This addendum owns the **new** domain values introduced by MVP 2 and MVP 3 (capabilities, new status enums, new notification triggers, entitlement model, persona configs, canonical-score contract, vector partitioning, audit-import policy).
 - **Fill a slot only after the relevant prompt's output has been human-approved AND its effect observed.** Blank is honest; pre-filled is the exact failure mode `DECISIONS_LEDGER.md` §10–§23 keeps warning about ("a feature is done when its effect is observed, not when its code exists"). Leave `___` until then.
 - Carry into every follow-up prompt: **the relevant Master Prompt (`MVP1_2.md` / `MVP2.md` / `MVP3.md`) + `DECISIONS_LEDGER.md` + this addendum** — not full prior outputs.
@@ -161,6 +161,7 @@ Restated for convenience from `DECISIONS_LEDGER.md` — **not editable here.** C
 | Rule | Source | Applies to MVP 2/3 as |
 |---|---|---|
 | `company_id` on every tenant-scoped table + RLS `= app.current_company_id()` | §5, §22 | Every new table, without exception |
+| **Table privileges are declared, never inherited.** The migration that creates a table grants it explicitly: `select, insert, update, delete` to `authenticated` (RLS narrows rows), `all` to `service_role`, nothing to `anon`, and **no `TRUNCATE` for `anon`/`authenticated`**. Platform default privileges are environment state outside the repo; a table relying on them works on one project and is "permission denied" on the next | §24.6 / `0023` | Every new MVP 2/3 table — a missing grant is invisible on a project that has defaults and fatal on one that does not, so the pgTAP suite must exercise each new table as `authenticated` |
 | **The cache is part of the trust boundary** — LocalOwner wipe on user switch | §23 / D-tenant-1 | Every new locally-cached entity; RLS alone is insufficient |
 | Audit via `audit_logs` + the **0021-fixed** `audit_row_change()` (jsonb status comparison) | §23.2 / D-audit-1 | Mandatory — the pre-0021 form makes **status-less** tables INSERT-ONLY |
 | `audit_logs` is INSERT + SELECT only (no UPDATE/DELETE at any rank or capability) | §5, §6 | Unchanged; capabilities do not create a mutation path |
@@ -182,6 +183,7 @@ Not part of MVP 2/3, but **MVP 3 assumes MVP 1 and MVP 2 are deployed**, so thes
 | Release build (`flutter build appbundle --release --flavor prod`) — **never run on any toolchain** | §19 | ___ |
 | The 8 pgTAP RLS assertions — **have never executed**; §22 is read from policy source, not observed behaviour | §22.5 → **§24.5** | **Superseded.** The original suite now executes but could not test RLS (ran as table owner, no fixture). Rewritten as 35 assertions with fixtures, role switching and paired controls — **awaiting first CI run** ___ |
 | Migration replay from an empty database | §24.5 | **Observed** — `supabase db reset` passes in CI run #24 (`6f856c4`) |
+| A fresh environment can actually use its tables (explicit grants, no reliance on platform defaults) | §24.6 | **Fixed by `0023`** — applied to dev; verified as a no-op for the app there (42 privileges removed, all `TRUNCATE`; none added). CI confirmation: ___ |
 | Custom SMTP (built-in allows ~2–4 emails/hour, project-wide) | §21.2 | ___ |
 | Android App Link (a custom scheme does not resolve on desktop-opened invites) | §21.2 | ___ |
 | Remove the DEBUG-ONLY corporate-CA trust before any release build | MVP1_2.md | ___ |

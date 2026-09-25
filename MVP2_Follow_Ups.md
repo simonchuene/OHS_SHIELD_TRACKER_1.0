@@ -95,6 +95,7 @@ Using the approved schema (2A) and the capability layer (Prompt 0), design the c
 
 **Generate:**
 - RLS enabled on **every** new table (name each explicitly; none unsecured), every policy including `company_id = app.current_company_id()`.
+- **Explicit table grants on every new table** (Addendum Part D, Ledger §24.6): `select, insert, update, delete` to `authenticated`, `all` to `service_role`, nothing to `anon`, no `TRUNCATE` for client roles. RLS without a grant is "permission denied"; a grant inherited from platform defaults works on one project and not the next.
 - Rank-gated policies where the action maps to the MVP 1 ladder (e.g. create/assign CAPA-linked records = Supervisor+).
 - **Capability-gated policies** for functional actions: `training.manage`, `compliance.manage`, `contractor.manage`, `permit.approve`, `committee.manage_minutes`, `document.control`.
 - **Confidential medical tier:** `medical_assessments`, `medical_documents`, `health_actions` SELECT restricted to `app.has_capability('health.read_medical')` — explicitly **excluding** Manager/Admin who lack it. Dashboards may read only aggregated, non-identifying health metrics.

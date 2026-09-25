@@ -182,6 +182,11 @@ cross-company data leak documented in the Decisions Ledger
 - Reuse the MVP 1 app.* RLS helpers and the MVP 2 capability
   layer (app.has_capability). Do not invent a parallel access
   model for AI.
+- EXPLICIT GRANTS: the migration that creates each new MVP 3
+  table grants it explicitly (authenticated DML, service_role
+  all, nothing to anon, no TRUNCATE for client roles) -- never
+  inherited from platform default privileges (Ledger section
+  24.6, migration 0023).
 - AUDIT: attach the existing MVP 1 audit_logs + the 0021-FIXED
   audit_row_change() trigger (jsonb status comparison) to every
   new MVP 3 table. Many MVP 3 tables are STATUS-LESS

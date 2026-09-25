@@ -103,6 +103,14 @@ policy that includes `company_id = app.current_company_id()`,
 exactly as MVP 1 does. No table may cross a company boundary
 at any rank or capability, Administrator included.
 
+EXPLICIT GRANTS: the migration that creates a table must also
+GRANT it -- select/insert/update/delete to authenticated (RLS
+narrows rows), all to service_role, nothing to anon, and no
+TRUNCATE for anon/authenticated. Never rely on platform default
+privileges: MVP 1 did, and a database built fresh from its
+migrations could not read a single table (Ledger section 24.6,
+migration 0023). The first MVP 2 migration is 0024.
+
 OFFLINE CACHE TENANCY: any new MVP 2 entity that is cached
 locally (Drift) must respect the LocalOwner wipe-on-user-switch
 mechanism from Decisions Ledger section 23. RLS alone does not

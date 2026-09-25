@@ -602,7 +602,7 @@ Two audited tables have no `status` column, and both were left **insert-only**:
 
 ## 24. Closing the MVP 1 Record — Inspections, References and the Invite Gate
 
-Everything below is MVP 1 work that landed after §23.2. `DECISIONS_LEDGER_ADDENDUM.md` treats this ledger as the frozen MVP 1 record, so it has to be complete before MVP 2 begins. **The MVP 1 record ends at this section; MVP 2 migrations begin at `0023`.**
+Everything below is MVP 1 work that landed after §23.2. `DECISIONS_LEDGER_ADDENDUM.md` treats this ledger as the frozen MVP 1 record, so it has to be complete before MVP 2 begins. **The MVP 1 record ends at this section; MVP 2 migrations begin at `0024`** (`0023` is the MVP 1 pre-flight grants fix, §24.6).
 
 **A note on dates.** The workstation clock ran about ten days slow during this period (the server reported 2026-08-28 while the machine reported 2026-08-18), so commits `6f4b009` through `12c457c` carry 2026-08-18 timestamps regardless of when they were made. Commit order is reliable; commit dates are not.
 
@@ -634,6 +634,12 @@ Nothing had ever written `reference` / `action_code`, although 0003 describes th
 
 Reordered: everything that can refuse an invite now runs before the side effect. The seat-entitlement insertion point §5a reserved now exists in code as `assertSeatAvailable(companyId)` — always allowing in MVP 1, called before the invite, so a future refusal leaves nothing behind. **§5a promised this point; until now it existed only in prose.** Filled in by MVP 2 Prompt 4.
 
+### 24.4 Open at the close of MVP 1
+
+- Auto-generated hazards are always categorised `physical`, whatever failed (`inspection-item-fail`).
+- A company-wide employee has no site. Supervisor and safety-officer visibility keys off site and department, so such an employee may sit outside the scopes meant to include them.
+- The pre-flight items are tracked in `DECISIONS_LEDGER_ADDENDUM.md` Part E. Their outcomes are appended below as they land (§24.5 onward).
+
 ### 24.5 The pgTAP suite ran — and could not test RLS
 
 §22.5 says the eight pgTAP assertions "have never executed". That stopped being true once CI's `supabase start` was trimmed to Postgres-only (§19): CI run #24 (`6f856c4`) shows `supabase start` **and `supabase db reset` passing**, and the job failing only at `supabase test db`. So **all 22 migrations replay cleanly from an empty database** — the "never replayed from empty" pre-flight item is now observed in CI — and the suite itself is what fails.
@@ -657,13 +663,27 @@ Two PostgreSQL behaviours are designed around rather than assumed: rows failing 
 
 Coverage: tenant isolation in both directions and at Administrator rank, exact-rank visibility (§22.2), the risk-assessment and close rank gates, audit read scoping and write immutability, the CAPA owner exception (0018, §22.3), and Administrator-only user management.
 
-**Status: written, not yet executed** — the only runner is CI, since `supabase start` needs Docker and this workstation cannot run it. Result recorded here when CI reports: ___
+**Executed against the hosted dev project: 35/35 pass** — the first time the access matrix (§22) has been *observed* rather than read from policy source. Run inside a transaction forced to roll back by raising an exception that carried the TAP output, then checked for leftovers (none). Hosted is not CI's environment, so this proves the policies and the suite, not the pipeline.
 
-### 24.4 Open at the close of MVP 1
+**First CI run (`fb18bf8`) failed** — not on an assertion. GitHub withholds job logs without repo-admin rights, so `dfd5ad5` made the step re-publish pgTAP failures as annotations, which the public API serves. The annotation showed tests 1–5 passing and the first query as `authenticated` failing with `permission denied for table hazards` — a real defect in the migrations, recorded in §24.6.
 
-- Auto-generated hazards are always categorised `physical`, whatever failed (`inspection-item-fail`).
-- A company-wide employee has no site. Supervisor and safety-officer visibility keys off site and department, so such an employee may sit outside the scopes meant to include them.
-- The pre-flight items in `DECISIONS_LEDGER_ADDENDUM.md` Part E — release build, pgTAP, SMTP, App Link, CA trust, cold-start deep link — are unchanged by this section.
+CI result after `0023`: ___
+
+### 24.6 The migrations never granted table access
+
+Every privilege the app used came from **Supabase's default privileges**, applied when each table was created on the hosted project — state that lives outside the repository. Across `0001`–`0022` the only table grant was `select` on `audit_logs` (0007); everything else was a `revoke`. A database built fresh from the migrations — CI's `supabase db reset` — gave `authenticated` no privileges on any table.
+
+**Why it mattered beyond CI.** D-env-1 requires uat/prod to be built by `supabase db push` from scratch. Whether the app worked there would have depended on the platform's defaults at the moment each project was created. Where they differed — as in CI — every screen would be "permission denied", and so would the Edge Functions: `service_role` bypasses RLS but not table privileges. A dependency no migration expressed, no review could see, and only a fresh environment could reveal.
+
+**A second finding in the same grants.** `authenticated` and `anon` held **`TRUNCATE` on every table, including `audit_logs`**. 0007 made the audit trail "immutable" by revoking insert/update/delete — but not truncate, which ignores RLS and would empty a table across every company. Unreachable in practice (PostgREST cannot issue `TRUNCATE`), which meant immutability rested on the API layer rather than the database.
+
+**Fix (`0023_explicit_table_grants.sql`):** `authenticated` gets `select, insert, update, delete` on the 20 app tables and `select` on `audit_logs`; 0007's and 0010's restrictions are re-asserted *after* the grants so a broad grant can never undo them; `service_role` gets `all`; `anon` is granted nothing; `TRUNCATE` is revoked from `anon` and `authenticated` on every table.
+
+**Verified on hosted by diffing grants before and after:** 429 → 387 privileges — **42 removed, every one `TRUNCATE`** (21 tables × `anon`/`authenticated`), **none added**. Every privilege the app uses is unchanged, and the pgTAP suite still passes 35/35 there.
+
+**Rule from here on** (Addendum Part D, `MVP2.md`, `MVP3.md`): the migration that creates a table declares its grants. Consequently MVP 1 ends at `0023`; **MVP 2 begins at `0024`**.
+
+**Lesson.** The suite was rewritten to test RLS and its first real finding was below RLS. A policy is only as good as the privilege beneath it, and a privilege that comes from the platform instead of the repository is a property of one environment, not of the application.
 
 ## 7. Open Questions / Deviations Log
 - **OQ1:** Confirm `companies` table addition (D1) at Prompt 2A.
