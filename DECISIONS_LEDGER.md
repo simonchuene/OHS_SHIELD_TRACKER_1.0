@@ -704,7 +704,15 @@ The exception aborts the transaction, so every fixture row rolls back, and it ca
 
 **What each proves, and what it cannot.** The hosted run proves the **policies and the assertions** against real Supabase. It **cannot** prove a fresh build. Hosted carries platform default privileges and GoTrue's full `auth` schema, and CI's Postgres-only stack has neither. That is exactly why §24.6 was invisible on hosted (35/35) and fatal in CI (5 of 35 ran). **Only CI proves that the migrations alone produce a working database.** Use hosted to iterate on a suite; treat CI as the verdict.
 
-**Not yet in the repository:** the transform lives in a throwaway script. If MVP 2 adopts technique 2, commit it (e.g. `supabase/tests/run_linked.py`) so the procedure is executable rather than described.
+**Now executable: `supabase/tests/run_linked.py`** (stdlib Python; run `python supabase/tests/run_linked.py [files]` from anywhere). It adds three guarantees the throwaway version lacked:
+
+- **It refuses suites that could save.** Any `commit`, `rollback`, `begin`, `end` or `abort` left after stripping the suite's own `begin;`/`rollback;` is rejected **before the database is contacted**. A mid-file commit would end the wrapping transaction and let every later statement persist. Keywords inside `$$` bodies, strings and comments are masked out, so `do $$ begin … end $$` still runs.
+- **The leftover check is suite-agnostic.** It compares row counts of every public table plus `auth.users`, and the `pgtap` extension's presence, before and after — not fixture names that the next suite might not use.
+- **Lost output is reported, not ignored.** An assertion written with a function the wrapper does not recognise shows up as a gap in the test numbering, and the run fails.
+
+Exit codes: `0` all passed · `1` assertion failure · `2` suite error before TAP output · `3` refused, or the database changed.
+
+**Verified on every path before commit:** the real suite (35/35, 22 tables unchanged), a failing assertion (exit 1, diagnostics shown), a suite error (exit 2, the database error and its line), a suite containing `commit` (exit 3, refused with no database contact — that file would have saved a row to `roles`), a DO block with `begin`/`end` (runs), and an unrecognised function (reported as a gap, exit 1).
 
 ## 7. Open Questions / Deviations Log
 - **OQ1:** Confirm `companies` table addition (D1) at Prompt 2A.
