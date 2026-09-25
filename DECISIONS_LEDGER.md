@@ -667,7 +667,7 @@ Coverage: tenant isolation in both directions and at Administrator rank, exact-r
 
 **First CI run (`fb18bf8`) failed** — not on an assertion. GitHub withholds job logs without repo-admin rights, so `dfd5ad5` made the step re-publish pgTAP failures as annotations, which the public API serves. The annotation showed tests 1–5 passing and the first query as `authenticated` failing with `permission denied for table hazards` — a real defect in the migrations, recorded in §24.6.
 
-CI result after `0023`: ___
+**CI result after `0023`: passed.** Run #27 (`108da01`): `supabase db reset` rebuilt the database from all 23 migrations, then `supabase test db` ran the suite to completion — pg_prove passes only when all 35 planned assertions run and pass. **This is the first successful CI run in the repository's history** (27 runs on record, #27 the only success; §19 recorded that CI had never passed). Scope of that claim: the jobs that run on a push to `main` — `Analyze & test` and `RLS (pgTAP)`. The tag-only release path (`Build`, `Deploy`) has still never executed.
 
 ### 24.6 The migrations never granted table access
 

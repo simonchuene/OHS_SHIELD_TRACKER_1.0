@@ -179,11 +179,11 @@ Not part of MVP 2/3, but **MVP 3 assumes MVP 1 and MVP 2 are deployed**, so thes
 
 | Item | Source | Status |
 |---|---|---|
-| CI green end-to-end (it had **never** passed before §19) | §19 | ___ |
+| CI green end-to-end (it had **never** passed before §19) | §19, §24.5 | **Half done.** The push path is green for the first time — run #27 (`108da01`), `Analyze & test` + `RLS (pgTAP)`. The **tag path has never run**: `Build (Android AAB)` and `Deploy Supabase` execute only on `v*` tags, so the release pipeline is still unexercised — see the release-build row below ___ |
 | Release build (`flutter build appbundle --release --flavor prod`) — **never run on any toolchain** | §19 | ___ |
-| The 8 pgTAP RLS assertions — **have never executed**; §22 is read from policy source, not observed behaviour | §22.5 → **§24.5** | **Superseded.** The original suite now executes but could not test RLS (ran as table owner, no fixture). Rewritten as 35 assertions with fixtures, role switching and paired controls — **awaiting first CI run** ___ |
+| The 8 pgTAP RLS assertions — **have never executed**; §22 is read from policy source, not observed behaviour | §22.5 → **§24.5** | **Superseded.** The original suite now executes but could not test RLS (ran as table owner, no fixture). Rewritten as 35 assertions with fixtures, role switching and paired controls — **passing in CI** (run #27, `108da01`), and 35/35 against the hosted dev project |
 | Migration replay from an empty database | §24.5 | **Observed** — `supabase db reset` passes in CI run #24 (`6f856c4`) |
-| A fresh environment can actually use its tables (explicit grants, no reliance on platform defaults) | §24.6 | **Fixed by `0023`** — applied to dev; verified as a no-op for the app there (42 privileges removed, all `TRUNCATE`; none added). CI confirmation: ___ |
+| A fresh environment can actually use its tables (explicit grants, no reliance on platform defaults) | §24.6 | **Fixed by `0023`** — applied to dev; verified as a no-op for the app there (42 privileges removed, all `TRUNCATE`; none added). **Confirmed in CI**: run #27 (`108da01`) built a fresh database from the migrations and the pgTAP suite passed against it |
 | Custom SMTP (built-in allows ~2–4 emails/hour, project-wide) | §21.2 | ___ |
 | Android App Link (a custom scheme does not resolve on desktop-opened invites) | §21.2 | ___ |
 | Remove the DEBUG-ONLY corporate-CA trust before any release build | MVP1_2.md | ___ |
